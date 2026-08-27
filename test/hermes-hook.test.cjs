@@ -123,7 +123,7 @@ test('invalid JSON reports only a clipped error type and never echoes payload', 
   assert.ok(invalid.stderr.length < 300, `stderr was not clipped: ${invalid.stderr.length}`);
 });
 
-test('HERMES_HOME profiles isolate contract state and use stop-that-shit subdirectories', (t) => {
+test('HERMES_HOME profiles isolate active state without creating inactive plugin data', (t) => {
   const firstHome = temporaryHome(t, 'sts-hermes-profile-a-');
   const secondHome = temporaryHome(t, 'sts-hermes-profile-b-');
   const session = 'same-session-id';
@@ -136,7 +136,7 @@ test('HERMES_HOME profiles isolate contract state and use stop-that-shit subdire
   assert.equal(JSON.parse(first.stdout).action, 'block');
   assert.equal(second.stdout, '');
   assert.ok(fs.existsSync(path.join(firstHome, 'stop-that-shit')));
-  assert.ok(fs.existsSync(path.join(secondHome, 'stop-that-shit')));
+  assert.equal(fs.existsSync(path.join(secondHome, 'stop-that-shit')), false);
 });
 
 test('parallel Hermes hook processes cannot oversubscribe agents=1', async (t) => {

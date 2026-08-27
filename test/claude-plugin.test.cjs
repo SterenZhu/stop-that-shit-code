@@ -41,7 +41,7 @@ test('Claude hooks register only events every supported host accepts', () => {
 
 test('local Claude marketplace points at the plugin root and leaves version to plugin.json', () => {
   const marketplace = readJson('.claude-plugin', 'marketplace.json');
-  assert.equal(marketplace.name, 'stop-that-shit');
+  assert.equal(marketplace.name, 'stop-that-shit-code');
   assert.equal(marketplace.plugins[0].name, 'stop-that-shit');
   assert.equal(marketplace.plugins[0].source, './');
   assert.equal(Object.hasOwn(marketplace.plugins[0], 'version'), false);

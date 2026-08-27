@@ -195,10 +195,10 @@ test('newer Claude built-ins classify without weakening read-only and worktree b
   assert.equal(classifyClaudeTool('Workflow', {}), 'delegate');
 });
 
-test('SessionStart and SubagentStart inject current contract context', (t) => {
+test('lifecycle hooks stay quiet until a code or explicit contract is active', (t) => {
   const options = workspace(t);
   const initial = handleClaudeHook({ session_id: 'life', hook_event_name: 'SessionStart', source: 'startup', cwd: root }, options);
-  assert.match(initial.hookSpecificOutput.additionalContext, /watch-only mode/);
+  assert.equal(initial, null);
   handleClaudeHook(prompt('life', '$stop-that-shit review -- inspect only'), options);
   const subagent = handleClaudeHook({ session_id: 'life', hook_event_name: 'SubagentStart', agent_id: 'a1', agent_type: 'Explore', cwd: root }, options);
   assert.equal(subagent.hookSpecificOutput.hookEventName, 'SubagentStart');

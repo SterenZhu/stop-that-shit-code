@@ -147,8 +147,8 @@ test('watch level warns but does not deny mutation', (t) => {
 test('unchanged prompt context is emitted once per contract state', (t) => {
   const options = workspace(t);
 
-  const first = handleHook(prompt('context-session', 'Inspect the current behavior.'), options);
-  const repeated = handleHook(prompt('context-session', 'Continue the inspection.'), options);
+  const first = handleHook(prompt('context-session', 'Inspect src/config.js behavior.'), options);
+  const repeated = handleHook(prompt('context-session', 'Continue the code inspection.'), options);
   const changed = handleHook(prompt('context-session', '$stop-that-shit review -- inspect only'), options);
   const repeatedReview = handleHook(prompt('context-session', 'Continue the review.'), options);
 
@@ -158,11 +158,21 @@ test('unchanged prompt context is emitted once per contract state', (t) => {
   assert.equal(repeatedReview, null);
 });
 
-test('default sessions are observing and record checks without returning deny', (t) => {
+test('default non-code sessions stay inactive and do not record checks', (t) => {
   const options = workspace(t);
   const output = handleHook(pre('observe-session', 'apply_patch', { command: 'patch' }), options);
   assert.equal(output, null);
   const runtime = readRuntime({ sessionId: 'observe-session' }, options);
+  assert.equal(runtime.summary.checkedActions, 0);
+  assert.equal(runtime.events.length, 0);
+});
+
+test('automatic code sessions observe and record checks without returning deny', (t) => {
+  const options = workspace(t);
+  handleHook(prompt('code-observe-session', 'Refactor src/config.js without adding dependencies.'), options);
+  const output = handleHook(pre('code-observe-session', 'apply_patch', { command: 'patch' }), options);
+  assert.equal(output, null);
+  const runtime = readRuntime({ sessionId: 'code-observe-session' }, options);
   assert.equal(runtime.summary.checkedActions, 1);
   assert.equal(runtime.events[0].controlState, 'observing');
   assert.equal(runtime.events[0].decision.responseOutcome, 'none');

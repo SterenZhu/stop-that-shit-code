@@ -72,7 +72,7 @@ test('Hermes runtime is self-contained and handles an existing prompt envelope',
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'sts-hermes-runtime-'));
   const copied = path.join(tempHome, 'stop-that-shit.cjs');
   fs.copyFileSync(runtimePath, copied);
-  const input = JSON.stringify({ hook_event_name: 'pre_llm_call', session_id: 'bundle-test-session', extra: { user_message: 'review this read-only task' } });
+  const input = JSON.stringify({ hook_event_name: 'pre_llm_call', session_id: 'bundle-test-session', extra: { user_message: 'review this source code task' } });
   const result = spawnSync(process.execPath, [copied], { input: `${input}\n`, encoding: 'utf8', env: { ...process.env, HERMES_HOME: tempHome } });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /context/);

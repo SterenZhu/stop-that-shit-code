@@ -124,6 +124,7 @@ function handlePrompt(event, options) {
   const command = runtimeCommand(event.prompt);
   if (command) return handleRuntimeCommand(command, event, state, options);
   const parsed = parseContractPrompt(event.prompt, state.contract);
+  if (!parsed.applicable) return none();
   state.contract = parsed.contract;
   const promptContext = contractContext(state.contract);
   const repeatedContext = state.lastPromptContext === promptContext;
@@ -133,6 +134,10 @@ function handlePrompt(event, options) {
 }
 
 function handleBeforeAction(event, options) {
+  const current = readState(event.sessionId, options.dataDir);
+  if (current.contract.mode === 'unconfirmed' && current.contract.source === 'default') {
+    return none();
+  }
   const evaluate = () => {
     const state = readState(event.sessionId, options.dataDir);
     const delegationCount = event.action.mutability === 'delegate'
@@ -187,6 +192,9 @@ function handleBeforeAction(event, options) {
 
 function handleLifecycleContext(event, options) {
   const state = readState(event.sessionId, options.dataDir);
+  if (state.contract.mode === 'unconfirmed' && state.contract.source === 'default') {
+    return none();
+  }
   return context(contractContext(state.contract));
 }
 

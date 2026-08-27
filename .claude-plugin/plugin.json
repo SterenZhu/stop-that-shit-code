@@ -2,13 +2,13 @@
   "name": "stop-that-shit",
   "displayName": "Stop That Shit（别再造史了）",
   "version": "0.1.0",
-  "description": "Keep Claude Code on task with local-first mode, scope, dependency, hash, and delegation guardrails.",
+  "description": "Keep Claude Code focused during code development with local-first mode, scope, dependency, hash, and delegation guardrails.",
   "author": {
     "name": "Stop That Shit contributors",
     "url": "https://github.com/lennney"
   },
-  "homepage": "https://github.com/lennney/stop-that-shit",
-  "repository": "https://github.com/lennney/stop-that-shit",
+  "homepage": "https://github.com/SterenZhu/stop-that-shit-code",
+  "repository": "https://github.com/SterenZhu/stop-that-shit-code",
   "license": "MIT",
   "keywords": [
     "claude-code",

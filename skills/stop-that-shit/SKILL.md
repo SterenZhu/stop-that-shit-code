@@ -1,12 +1,19 @@
 ---
 name: stop-that-shit
-description: Keep coding agents focused on requested and necessary work. Use for bounded changes, review-only tasks, scope creep, speculative hardening, unnecessary hashing or dependencies, repeated audit loops, or when the user invokes Stop That Shit.
+description: Keep coding agents focused during code development. Use only for coding tasks involving bounded changes, code review, scope creep, speculative hardening, unnecessary hashing or dependencies, repeated audit loops, or an explicit Stop That Shit invocation. Do not use for writing, research, documents, presentations, spreadsheets, images, or other non-code work.
 license: MIT
 ---
 
 # Stop That Shit
 
 Do the requested work. Keep necessary consequences. Stop everything else.
+
+## Scope
+
+Use this Skill only while handling code development: creating, changing,
+debugging, testing, reviewing, or maintaining source code and its directly
+related configuration. Do not invoke or apply it to writing, research,
+documents, presentations, spreadsheets, images, or other non-code tasks.
 
 This Skill is advisory and works without the Guard hooks. It cannot guarantee
 model behavior. When the Guard is installed, the same directives also provide

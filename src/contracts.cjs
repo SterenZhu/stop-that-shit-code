@@ -5,6 +5,11 @@ const LEVELS = new Set(['watch', 'guard', 'lock', 'off']);
 const HASH_POLICIES = new Set(['deny', 'ask', 'allow']);
 const SCOPE_POLICIES = new Set(['deny', 'ask', 'allow']);
 
+function isCodeDevelopmentPrompt(prompt) {
+  const text = String(prompt || '');
+  return /\b(?:code|coding|source|diff|patch|repo(?:sitory)?|commit|branch|pull request|merge request|bug|debug|refactor|function|method|class|module|package|dependency|compiler|build|lint|typecheck|unit test|integration test|test suite|api|endpoint|database|schema|migration|config(?:uration)?|cli|sdk|frontend|backend|server|client|script)\b|(?:代码|源码|编程|开发|仓库|补丁|提交|分支|合并请求|缺陷|调试|重构|函数|方法|类|模块|依赖|编译|构建|测试|接口|数据库|迁移|配置|脚本)|(?:^|[\s`'"(])(?:[^\s`'"()]+\.(?:[cm]?[jt]sx?|py|rs|go|java|kt|kts|c|cc|cpp|cxx|h|hh|hpp|cs|rb|php|swift|scala|sh|ps1|sql|html?|css|scss|sass|less|vue|svelte|json|ya?ml|toml|xml))(?:$|[\s`'"),:])/i.test(text);
+}
+
 function defaultContract() {
   return {
     mode: 'unconfirmed',
@@ -52,6 +57,14 @@ function parseDirective(prompt) {
 
 function naturalCorrection(prompt, previous) {
   const text = prompt.trim();
+
+  // Natural-language mode inference is an automatic activation path. Keep it
+  // limited to code development unless this session already has a confirmed
+  // Stop That Shit contract. Explicit $stop-that-shit directives are parsed
+  // separately and remain available on demand.
+  if (previous.mode === 'unconfirmed' && !isCodeDevelopmentPrompt(text)) {
+    return null;
+  }
 
   if (/^(?:stop|stop now|停止|停下来)[.!。！\s]*$/i.test(text)) {
     return { mode: 'answer', source: 'explicit-stop' };
@@ -128,13 +141,22 @@ function parseContractPrompt(prompt, previousContract = defaultContract()) {
       changed = true;
     }
     next.source = correction.source;
+  } else if (next.mode === 'unconfirmed' && next.source === 'default' && isCodeDevelopmentPrompt(prompt)) {
+    next.source = 'auto-code';
+    changed = true;
   }
 
   if (next.mode === 'unconfirmed' && next.level !== 'off') {
     next.level = 'watch';
   }
 
-  return { contract: next, changed, directive: Boolean(directive), correction: Boolean(correction) };
+  return {
+    contract: next,
+    changed,
+    directive: Boolean(directive),
+    correction: Boolean(correction),
+    applicable: Boolean(directive || correction || next.source !== 'default')
+  };
 }
 
 module.exports = {
@@ -143,5 +165,6 @@ module.exports = {
   LEVELS,
   MODES,
   defaultContract,
+  isCodeDevelopmentPrompt,
   parseContractPrompt
 };

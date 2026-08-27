@@ -39,6 +39,8 @@ test('the packaged Skill remains useful without the Guard hooks', () => {
   assert.match(skill, /works without the Guard/i);
   assert.match(skill, /advisory/i);
   assert.match(skill, /Do the requested work\. Keep necessary consequences\. Stop everything else\./);
+  assert.match(skill, /Use this Skill only while handling code development/);
+  assert.match(skill, /Do not invoke or apply it to writing, research/);
 });
 
 test('Codex hook commands keep resolving the plugin root inside Node and stay shell-agnostic', () => {

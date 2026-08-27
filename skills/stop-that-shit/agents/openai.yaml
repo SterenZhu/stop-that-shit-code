@@ -1,6 +1,6 @@
 interface:
   display_name: "Stop That Shit"
-  short_description: "Keep Codex on task. Stop the rest."
+  short_description: "Keep Codex focused during code development."
   brand_color: "#D92D20"
   default_prompt: "$stop-that-shit review -- Review this diff. Report findings; do not edit."
 policy:
