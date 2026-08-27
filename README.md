@@ -15,6 +15,8 @@
   <img src="https://img.shields.io/github/license/lennney/stop-that-shit?style=flat-square&color=111111" alt="MIT 许可证">
 </p>
 
+> **Fork 说明：** 本 fork 仅将 Stop That Shit 的自动触发范围限制在代码开发场景。任何场景仍可通过 `$stop-that-shit` 显式调用，其他插件行为保持与[上游项目](https://github.com/lennney/stop-that-shit)一致。
+
 <p align="center">
   <strong>你只让 Agent 导出一个结果文件。它顺手又生成一份 SHA-256 校验和，但后面没有任何命令会读取它。Stop That Shit。</strong><br>
   Stop That Shit（别再造史了）处理 AI coding agent 自己加出来的防御性工作和任务越界，支持 Codex、Claude Code、OpenCode 和 Hermes Agent CLI。<br>
