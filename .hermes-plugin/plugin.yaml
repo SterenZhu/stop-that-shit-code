@@ -1,6 +1,6 @@
 name: stop-that-shit
 version: "0.1.0"
-description: "Stop That Shit code-development task-boundary Guard for Hermes Agent CLI."
+description: "Stop That Shit task-boundary Guard for Hermes Agent CLI."
 author: "Stop That Shit contributors"
 license: MIT
 manifest_version: 1

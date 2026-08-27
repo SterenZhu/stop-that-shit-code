@@ -8,13 +8,6 @@ license: MIT
 
 Do the requested work. Keep necessary consequences. Stop everything else.
 
-## Scope
-
-Use this Skill only while handling code development: creating, changing,
-debugging, testing, reviewing, or maintaining source code and its directly
-related configuration. Do not invoke or apply it to writing, research,
-documents, presentations, spreadsheets, images, or other non-code tasks.
-
 This Skill is advisory and works without the Guard hooks. It cannot guarantee
 model behavior. When the Guard is installed, the same directives also provide
 machine-enforced boundaries on supported host action paths.

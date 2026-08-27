@@ -814,7 +814,7 @@ module.exports = {
   "name": "stop-that-shit",
   "version": "0.1.0",
   "private": true,
-  "description": "Stop unneeded scope, subagents, dependencies, and hashes during code development in Codex, Claude Code, OpenCode, and Hermes Agent CLI",
+  "description": "Stop unneeded scope, subagents, dependencies, and hashes in Codex, Claude Code, OpenCode, and Hermes Agent CLI tasks",
   "license": "MIT",
   "main": "./opencode/stop-that-shit.mjs",
   "exports": {
@@ -1403,7 +1403,7 @@ __modules["package.json"] = function(module) { module.exports = {
   "name": "stop-that-shit",
   "version": "0.1.0",
   "private": true,
-  "description": "Stop unneeded scope, subagents, dependencies, and hashes during code development in Codex, Claude Code, OpenCode, and Hermes Agent CLI",
+  "description": "Stop unneeded scope, subagents, dependencies, and hashes in Codex, Claude Code, OpenCode, and Hermes Agent CLI tasks",
   "license": "MIT",
   "main": "./opencode/stop-that-shit.mjs",
   "exports": {
