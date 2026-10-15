@@ -1,13 +1,14 @@
 # Contributing to Stop That Shit
 
-Stop That Shit is built from real Codex behavior, paired counterexamples, and
+Stop That Shit is built from real agent behavior, paired counterexamples, and
 small verifiable controls. You do not need to write Hook code to contribute.
 The smallest useful contribution is one sanitized issue with the request, the
 unnecessary or necessary action, and the reason it should be stopped or kept.
+Include the host name and version so maintainers can identify its adapter.
 
 ## Fastest ways to help
 
-1. Submit a **Bad Case** where Codex left the authorized task.
+1. Submit a **Bad Case** where the agent left the authorized task.
 2. Submit a **Good Case** where a seemingly extra action was actually necessary.
 3. Pair an existing case labeled `needs-counterexample`.
 4. Turn a sanitized case into a reproducible fixture.
@@ -20,15 +21,51 @@ unnecessary or necessary action, and the reason it should be stopped or kept.
 | --- | --- |
 | Agent guidance or the Stop Ladder | `skills/stop-that-shit/SKILL.md` |
 | Hook discovery and lifecycle events | `hooks/` |
-| Task contracts and decisions | `src/` |
-| Codex event translation | `src/adapters/` |
-| A Bad Case or Good Case | `cases/0.0.1/` |
+| Task directives and contract parsing | `src/contracts.cjs`, `test/contracts.test.cjs` |
+| Authorization decisions | `src/decision.cjs`, `test/decision.test.cjs` |
+| Shared shell classification | `src/shell-analysis.cjs`, `test/shell-analysis.test.cjs` |
+| Hash API detection in source edits | `src/hash-intent.cjs`, `test/hash-intent.test.cjs` |
+| Saved-state validation and migration | `src/state-schema.cjs`, `test/state.test.cjs` |
+| State I/O and process locks | `src/state.cjs`, `test/session-lock.test.cjs` |
+| Host event translation | `src/adapters/`, `HOST-ADAPTER-CONTRACT.md` |
+| Runtime evidence queries and JSONL reads | `src/runtime-audit.cjs`, `src/runtime-annotations.cjs`, `src/runtime-storage.cjs`, `test/runtime-audit.test.cjs`, `test/runtime-storage.test.cjs` |
+| A reader-facing case explanation | `cases/README.md` and `cases/README_CN.md` |
+| An executable Bad/Good policy pair | `cases/0.0.1/` |
 | Reproducible model evaluation | `evals/codex-paired/cases/<family>/` |
 | Regression coverage | `test/` |
 
 User-facing setup belongs in `README.md`, `README_EN.md`, `INSTALL.md`, or
 `INSTALL_FOR_AGENTS.md`. Keep raw sessions, private repositories, and launch
 material out of this repository.
+
+## Run the checks
+
+Run the affected tests while editing. For example:
+
+```powershell
+node --test test/contracts.test.cjs test/delegation-state.test.cjs
+```
+
+Add executable suites directly under `test/`, named `*.test.cjs` or
+`*.test.mjs`. `npm test` discovers them automatically. Other files and nested
+fixture directories are not test entrypoints. Filter tests by name with
+`npm test -- --test-name-pattern=pattern`.
+
+After changing the shared core, Hermes adapter, or package metadata, regenerate
+the Hermes bundle with `npm run hermes:build`. After changing the CaseBundle
+schema, regenerate its validator with `npm run schema:build`. Commit generated
+files with their sources; verification checks do not rebuild them.
+
+Before opening a pull request, run the same checks as CI:
+
+```powershell
+npm run check
+git diff --check
+```
+
+`check` runs `npm test`, `npm run eval`, and `npm run release:check` in order,
+stopping on failure. These commands remain available separately. Optional host
+smoke tests keep their existing opt-in settings.
 
 ## Before opening a pull request
 
@@ -73,7 +110,12 @@ Reports are welcome. They do not need to arrive as perfect evals.
 Use [`cases/_template.md`](cases/_template.md) for a catalogue PR. A GitHub issue
 is enough for an initial report.
 
-For a publishable executable pair, create a `CaseBundle v1` and validate it:
+For a decision-function regression, add paired JSON inputs and expected
+decisions in `cases/0.0.1/`, then run `npm run eval`. Explain any semantic labels
+supplied by the fixture; they are not proof that a host infers those facts.
+
+For a complete model task with fixtures and acceptance, create a `CaseBundle v1`
+and validate it:
 
 ```powershell
 npm run sts -- case new --id <slug>
@@ -86,7 +128,7 @@ escape, and unknown assertion types are rejected.
 
 ## Case labels
 
-- `case:bad` — Codex crossed the requested boundary;
+- `case:bad` — the agent crossed the requested boundary;
 - `case:good` — the action was necessary and must remain allowed;
 - `needs-counterexample` — the case still needs its nearest opposite;
 - `good first issue` — a small contribution with enough context to start.
@@ -110,6 +152,12 @@ One concern per PR. A classifier change, installer refactor, and README rewrite
 belong in separate contributions.
 
 ## Evaluation claims
+
+For OpenCode adapter or release-package changes, set `STS_OPENCODE_V1_BIN`
+and `STS_OPENCODE_V2_BIN` to the installed executables, then run
+`npm run test:hosts`. Both hosts are required. These packed-plugin checks use
+a local model stand-in and do not establish model effectiveness. Ordinary
+`npm test` skips the native smoke checks when the binaries are absent.
 
 Any public effectiveness claim must state:
 

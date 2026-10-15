@@ -1,3 +1,19 @@
+# Stop That Shit · Code Fork
+
+基于上游 **0.2.5**，用于代码开发中的任务范围控制。
+
+- 自动触发限定于代码开发；显式调用仍可按需使用。
+- 保留 Windows 路径、Codex 指令识别、并发预算和会话恢复修复。
+- 当前插件只分发 stop-that-shit 技能；写作相关的 STSS 未纳入本 Fork 安装内容。
+- 新版 Stop Ladder 以完整完成任务为目标，保留必要的验证、兼容和迁移工作。
+- 更新后重启 Codex，并在新 CLI 会话的 /hooks 中审查变化的 Hook 定义。
+
+来源：[个人 Fork](https://github.com/SterenZhu/stop-that-shit-code)；[上游 0.2.5](https://github.com/lennney/stop-that-shit/releases/tag/0.2.5)。
+
+以下保留上游产品说明与历史资料；安装行为以上述 Fork 范围和当前清单为准。
+
+---
+
 <p align="center">
   <img src="assets/stop-stamp.svg" alt="Stop That Shit（别再造史了）AI Agent 任务边界 Guard 的红色 STOP 印章" width="240">
 </p>
@@ -5,62 +21,108 @@
 <h1 align="center">Stop That Shit（别再造史了）</h1>
 
 <p align="center">
-  <a href="https://github.com/lennney/stop-that-shit/stargazers"><img src="https://img.shields.io/github/stars/lennney/stop-that-shit?style=flat-square&color=111111&label=stars" alt="GitHub stars"></a>
   <a href="https://github.com/lennney/stop-that-shit/releases"><img src="https://img.shields.io/github/v/release/lennney/stop-that-shit?include_prereleases&sort=semver&style=flat-square&color=111111&label=release" alt="最新版本"></a>
-  <a href="https://github.com/lennney/stop-that-shit/actions/workflows/ci.yml"><img src="https://github.com/lennney/stop-that-shit/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a>
-  <img src="https://img.shields.io/badge/works%20with-Codex-111111?style=flat-square" alt="支持 Codex">
-  <img src="https://img.shields.io/badge/works%20with-Claude%20Code-111111?style=flat-square" alt="支持 Claude Code">
-  <img src="https://img.shields.io/badge/works%20with-OpenCode-111111?style=flat-square" alt="支持 OpenCode">
-  <img src="https://img.shields.io/badge/works%20with-Hermes%20Agent%20CLI-111111?style=flat-square" alt="支持 Hermes Agent CLI">
+  <a href="https://github.com/lennney/stop-that-shit/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lennney/stop-that-shit/ci.yml?branch=main&style=flat-square&label=build" alt="构建状态"></a>
   <img src="https://img.shields.io/github/license/lennney/stop-that-shit?style=flat-square&color=111111" alt="MIT 许可证">
 </p>
 
 > **Fork 说明：** 本 fork 仅将 Stop That Shit 的自动触发范围限制在代码开发场景。任何场景仍可通过 `$stop-that-shit` 显式调用，其他插件行为保持与[上游项目](https://github.com/lennney/stop-that-shit)一致。
 
 <p align="center">
-  <strong>你只让 Agent 导出一个结果文件。它顺手又生成一份 SHA-256 校验和，但后面没有任何命令会读取它。Stop That Shit。</strong><br>
-  Stop That Shit（别再造史了）处理 AI coding agent 自己加出来的防御性工作和任务越界，支持 Codex、Claude Code、OpenCode 和 Hermes Agent CLI。<br>
-  <a href="#快速安装">安装</a> ·
-  <a href="#bad-case--good-case">Bad / Good Case</a> ·
-  <a href="cases/README.md">案例库</a> ·
-  <a href="CONTRIBUTING.md">参与贡献</a> ·
-  <a href="README_EN.md">English</a>
+  <em>把活干完。把多余的停下。</em>
 </p>
 
-这份校验和生成了，任务却没有少做一步，后面的流程也完全一样。换个任务，多出来的可能是 guard、兼容层、全量测试或额外流程。Codex、Claude Code、OpenCode 和 Hermes Agent CLI 都可能这么做：每一步单看都有理由，但用户没要求，当前任务也用不上。
+<p align="center">
+  Skill + Guard，帮 AI coding agent 停止无用防御和任务越界。<br>
+  Codex · Claude Code · OpenCode · Hermes Agent CLI · Pi<br>
+  <a href="#shit-是哪四种">SHIT 哲学</a> ·
+  <a href="#前后对比">看个例子</a> ·
+  <a href="#快速安装">安装</a> ·
+  <a href="cases/README_CN.md">案例库</a> ·
+  <a href="README_EN.md">English</a> ·
+  <a href="README_KO.md">한국어</a>
+</p>
 
-我也试过不断往 `AGENTS.md` 里补「不要乱改」「别过度设计」「没让我做的先别做」。规则越补越长，`AGENTS.md` 自己也开始造史。Stop That Shit 把其中能明确判断的边界做成 Skill 和可执行 Guard。
+---
 
-你用 `review`、`change` 等模式写明授权，再按需限制文件、依赖、hash 和 subagent
-预算。Stop That Shit 在受覆盖的 Hook 路径上检查这些明确边界。Agent 仍然可以读
-仓库，也必须处理真正受影响的调用方。Guard 确认某个动作越界时，会返回一枚红章：
+你只让 Agent 导出一个文件，它顺手算了份没人读取的 SHA-256，说是“以防万一”。
 
-```text
-STOP / INTENT
-Guard 返回 permission deny。
-Reason: MODE_FORBIDS_MUTATION
-State: ARMED / review
-Event: evt_...
+你让它 Review，它找到问题就开始改。你让它修一个点，它又想重构旁边的模块。检查已经回答了当前问题，它还想再拉一个 Agent，“最后确认一下”。
+
+理由一个比一个严谨。东西还没交付，token 已经花了一截，你还得盯着它，别让任务继续跑偏。
+
+**活还没拿到，我先当上了 Agent 的监工。**
+
+我也试过往 `AGENTS.md` 里补规则：“不要乱改”“别过度设计”“没让我做的先别做”。每气一次就补一条，写着写着，`AGENTS.md` 自己也开始造史了。
+
+**Stop That Shit。别再造史了。** 该干的干完整，没用的别往上堆。
+
+## SHIT 是哪四种
+
+我们把这些行为叫作 SHIT：
+
+- **S — Scope creep，范围膨胀。** 修一个问题，顺手重构无关模块。必要的调用方、数据迁移和测试要一起处理；没有当前用途的扩展就停下。
+- **H — Hashing & hypothetical hardening，无用防御。** 没人读取的 checksum、为想象中的未来搭的兼容层。防御要能发现问题，并触发拒绝、恢复或诊断。有效的保留，无用的省掉，吞错报成功或制造重复副作用的修好。
+- **I — Intent violation，意图越界。** 说了只读 Review，文件还是被改了。审查就报告问题，修改需要授权。用户划的边界必须算数。
+- **T — Task thrashing，任务打转。** 没有新问题或变化，读过、测过、审过的又来一遍。能回答当前问题的证据就复用；代码或验收条件变了，再补相关验证。做完、验证充分，就结束。
+
+**把当前责任承担完整，让复杂度随真实需要增长。** 需要多改几个文件、补齐迁移或跑跨组件测试，就做完整。
+
+## 前后对比
+
+下游只读取 `report.csv`，没有发布校验，摘要也没有其他用途。导出逻辑却写成了这样：
+
+```js
+await writeFile("report.csv", csv);
+await writeFile("report.csv.sha256", createHash("sha256").update(csv).digest("hex"));
 ```
 
-[`0.1.0`](https://github.com/lennney/stop-that-shit/releases/tag/0.1.0) 是首个多平台正式版本：Codex、Claude Code、OpenCode 和 Hermes Agent CLI 四套 Adapter 共用同一套 Guard、Skill、成对案例与只存元数据的本地 Runtime。
+按 STS 的判断，保留：
 
-| 从哪里开始 | 提供什么 | 使用成本 |
-| --- | --- | --- |
-| **Skill + Guard** | 同一份 Skill，加上机器可执行边界 | 默认；检查宿主 Hook 配置后启用 |
-| **只装 Skill** | Stop Ladder 和任务模式引导 | 可选；没有执行拦截 |
+```js
+await writeFile("report.csv", csv);
+```
 
-## 从 Codex + GPT-5.6 开始，现在覆盖多种 Agent
+这个简化示例省掉了无用校验和，文件照常交付。更多场景见[案例库](cases/README_CN.md)。
 
-项目从 Codex 起步：公开记录保留了 Codex CLI `0.145.0` + `gpt-5.6-sol` 的探索运行，以及 Codex CLI `0.147.0` + `gpt-5.6-luna` 的定向 pilot。现在四个 Adapter 共用同一套任务边界核心；Codex 安装方式、GPT-5.6 记录和 paired eval 见 [EVIDENCE.md](EVIDENCE.md) 与 [Codex 对照测试](evals/codex-paired/README.md)。
+如果发布流程会读取 checksum，并在不一致时拒绝使用文件，就保留，用 `hash=allow` 放行。
+
+**必要的工作要做全。** 修复配置迁移时，旧数据已经发布且仍需支持，就把迁移、读写双方和兼容性测试一起补齐。哪怕 diff 更大，也不能留下坏掉的调用方。
+
+## 验证到了什么
+
+公开的 18 个 Bad/Good 判定用例，检查规则能否停下多余动作、保留必要工作，覆盖只读审查、必要调用方、已发布数据迁移、发布校验和，以及文件、依赖和 subagent 边界。模型在真实任务中的表现另看对照运行。
+
+[完整证据](EVIDENCE.md)记录测试、历史 Codex / GPT-5.6 运行和没有差异的结果；复现方法见[对照测试说明](evals/codex-paired/README.md)。
+
+## 它怎么判断
+
+遇到这些 SHIT，先读相关代码、查清调用链，再按顺序判断：
+
+```text
+1. 当前要交付什么？     → 明确结果、授权和已有支持承诺
+2. 已有能力够用吗？     → 从直接可用的方案开始
+3. 还有什么具体缺口？   → 补齐现在需要的行为和保障
+4. 这层防御起什么作用？ → 保留有效的，省掉无用的，修正有害的
+5. 结果验证完成了吗？   → 没有范围内阻塞，就结束
+```
+
+先看已有代码、标准库、平台原生能力和已安装依赖。符合所需行为和状态生命周期的就用，有具体缺口再加机制。
+
+新机制说不清用途，可以暂缓；已有保护用途不明，先查清再动。真实的信任边界和已有支持承诺，都足以说明保护的必要，不必等事故发生。
+
+代码行数、文件数量和检查次数不能代替判断。[完整规则](skills/stop-that-shit/SKILL.md)。
 
 ## 快速安装
 
-需要 Node.js 18+。完整安装说明见 [INSTALL.md](INSTALL.md)。
+一般宿主需要 Node.js 18+；Pi 0.84.4 自身要求 Node.js 22.19+。完整安装说明见 [INSTALL.md](INSTALL.md)。
 
-### Claude Code
+展开你使用的宿主。只想用规则、不需要执行拦截，可以[只装 Skill](INSTALL.md#optional-skill-only)。
 
-解压后，在仓库根目录执行：
+<details>
+<summary>Claude Code</summary>
+
+下载并解压 [0.2.5 源码](https://github.com/lennney/stop-that-shit/archive/refs/tags/0.2.5.zip)，在仓库根目录执行：
 
 ```bash
 claude plugin validate .
@@ -74,16 +136,22 @@ claude plugin install stop-that-shit@stop-that-shit
 /stop-that-shit:stop-that-shit review -- Review 这个 diff，只报告问题，不要修改。
 ```
 
-### Codex
+</details>
+
+<details>
+<summary>Codex</summary>
 
 ```bash
-codex plugin marketplace add lennney/stop-that-shit
+codex plugin marketplace add lennney/stop-that-shit --ref 0.2.5
 codex plugin add stop-that-shit@stop-that-shit
 ```
 
-重启 Codex。在新的 CLI TUI 中输入 `/hooks`，检查命令后信任 `UserPromptSubmit` 和 `PreToolUse`。也可以把 [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) 交给 Codex，让它完成非交互步骤。
+`--ref` 把安装固定到版本 tag，不跟随可变的 `main`。重启 Codex。在新的 CLI TUI 中输入 `/hooks`，对照[该 tag 的 Hook 清单](INSTALL.md#review-the-packaged-hooks)检查并信任命令。也可以把 [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) 交给 Codex，让它完成非交互步骤。
 
-### OpenCode 从 GitHub 安装
+</details>
+
+<details>
+<summary>OpenCode 从 GitHub 安装</summary>
 
 OpenCode 1.18.18 或更高版本可以全局安装这个仓库，无需 clone：
 
@@ -93,7 +161,10 @@ opencode plugin github:lennney/stop-that-shit -g
 
 重启 OpenCode 后用 `$stop-that-shit review -- ...` 设置契约。该命令安装 Guard；内置 Skill 和可选 `/sts` 别名不会自动注册。详见 [INSTALL.md](INSTALL.md#opencode-install-from-github)。
 
-### Hermes Agent CLI
+</details>
+
+<details>
+<summary>Hermes Agent CLI</summary>
 
 需要 Node.js 18+。
 
@@ -112,163 +183,150 @@ hermes gateway restart
 这些操作不需要每次使用插件时重复。只有启用、禁用、更新、回滚或重装插件后，
 才需要重启对应的 Hermes 进程。
 
-## Bad Case / Good Case
+</details>
 
-```text
-BAD CASE
-用户   Review 这个 diff，不要修改。
-Codex  调用 apply_patch。
-STS    STOP / INTENT：Review 不等于允许修改。
+<details>
+<summary>Pi Coding Agent</summary>
 
-GOOD CASE
-用户   只修 P1 问题。
-Codex  提交一个窄补丁，运行受影响的检查。
-STS    ALLOWED：完成请求确实需要这个动作。
+当前适配固定验证 `@earendil-works/pi-coding-agent` `0.84.4`。从包含该
+Adapter 的本地 checkout 安装：
+
+```bash
+pi install /absolute/path/to/stop-that-shit
 ```
 
-Good Case 和拦截同样重要。已经发布的数据可能需要迁移；发布流程可能真的消费校验和；共享合同变化后可能必须跑跨组件测试。只要用户明确要求，或仓库中的代码、数据和发布流程能证明它确实必要，这些工作就该保留。
-
-## SHIT 是哪四种
-
-一个有边界的任务，常从这四个方向跑掉：
-
-| | 问题 | 常见样子 |
-| --- | --- | --- |
-| **S** | Scope creep，范围膨胀 | 修一个点，顺手重构半个项目。 |
-| **H** | Hashing 与 hypothetical hardening | 加了摘要、防御或免责声明，却没有当前用途。 |
-| **I** | Intent violation，意图越界 | 让它 Review 或回答问题，它直接动手改。 |
-| **T** | Task thrashing，任务打转 | 已经查过、测过、审过，它又从头来一遍。 |
-
-插件不数代码行数，也不把 diff 越小当成越好。它只问：这一步是用户要求的，还是当前代码、数据和验收条件确实需要的？
-
-常见的样子包括：没有消费者的 checksum 和 guard；当前没有用户决策，却把内部风险写成一排界面免责声明；该做工程判断时改成评分表和反复审计；为没人要求的将来加 feature flag、迁移框架和包装层。
-
-## 为什么先拦 hash
-
-Hook 在受支持的工具调用中可以较高置信度地识别 hash 动作。判断沿用 [HERO](https://github.com/wanshuiyin/HERO-Anti-OverDefense) 的判据：摘要必须替代一个更贵的操作，而且结果必须控制下一步。
+启动新的 Pi 进程，或修改资源后在 TUI 执行 `/reload`。然后使用：
 
 ```text
-STOP
-给每一行算 hash，算完还是逐行比较。
-
-ALLOW
-用 digest 跳过一个未变化大文件的重复读取。
+/skill:stop-that-shit review -- Review 这个 diff，只报告问题，不要修改。
 ```
 
-`0.1.0` 默认拒绝可识别的新 hash 操作。用户明确要求，或仓库中的代码与发布流程证明它确实必要时，就用 `hash=allow` 放行。Hook 不会根据自己没读过的代码猜测这个用途。
+从上述固定 tag 安装即可获得 Pi Adapter 和两个 Skill。详见 [INSTALL.md](INSTALL.md#pi-coding-agent)。
 
-## 怎么用
+</details>
 
-Claude Code 插件直接用 namespaced Skill：
+<details>
+<summary>Oh My Pi</summary>
 
-```text
-/stop-that-shit:stop-that-shit change -- 修复失败的配置测试。
-/stop-that-shit:stop-that-shit review -- Review 这个 diff，只报告问题，不要修改。
+已在 `@oh-my-pi/pi-coding-agent` `18.4.4` 验证独立 Extension。
+0.2.5 包含 OMP 独立 Extension；从该版本源码或解压后的发布包启动：
+
+```bash
+omp -e /absolute/path/to/stop-that-shit/omp/stop-that-shit.ts --skills /absolute/path/to/stop-that-shit/skills --sts-contract "review agents=0 -- inspect"
 ```
 
-Codex 或普通 prompt 里的宿主无关指令仍然使用：
+确认扩展加载后，发送 `/sts change -- ...` 切换模式，`/sts status` 查看合同。
+该原生命令也用于 RPC。TUI 还支持首行 `$stop-that-shit` 指令。
+详见 [INSTALL.md](INSTALL.md#oh-my-pi)。
+
+</details>
+
+## 使用
+
+在 Codex 或支持宿主无关指令的 prompt 中，把一条指令放在消息首个非空行，不要包在引用或代码块里。用 `--` 分隔任务正文：
 
 ```text
-$stop-that-shit change -- 修复失败的配置测试。
 $stop-that-shit review -- Review 这个 diff，只报告问题，不要修改。
+$stop-that-shit change -- 修复配置读取失败，补齐受影响的调用方和检查。
 ```
 
-边界已经很清楚时，再加限制：
+Claude Code 插件用 `/stop-that-shit:stop-that-shit`，Pi Skill 用 `/skill:stop-that-shit`。
+
+| 指令 | 用途 |
+| --- | --- |
+| `review` | 审查并报告问题 |
+| `answer` | 回答问题 |
+| `monitor` | 持续检查和报告 |
+| `change` | 允许完成任务需要的修改 |
+| `watch` | 观察动作，不阻断 |
+| `status` / `runtime` | 查看当前状态和本地记录 |
+
+需要更具体的边界时，加上参数：
 
 ```text
 $stop-that-shit lock change files=src/config.cjs|test/config.test.cjs -- 修复这个行为。
 $stop-that-shit change deps=allow -- 添加我要求的解析器依赖。
-$stop-that-shit change hash=allow -- 生成我要求的发布校验和。
+$stop-that-shit change hash=allow -- 生成发布流程需要的校验和。
 $stop-that-shit change agents=1 -- 使用一个独立测试 subagent。
 ```
 
-不知道全部受影响文件时，不要硬写 `files=`。让 agent 沿真实调用链检查，把完成任务必需的 caller、fixture 和测试一起改完。
+还不知道全部受影响文件，就别急着锁 `files=`。先沿调用链查清楚。
 
-安装后默认是 `OBSERVING / unconfirmed`：Guard 会检查并记录 covered action，但不会猜测任务授权，也不会返回 permission deny。显式使用 `review`、`answer`、`monitor` 或 `change` 后才进入 `ARMED`；`watch` 始终只观察。
+### 红章管到哪里
 
-下面这些只读命令不会修改当前任务合同：
+Skill 负责工程判断。Guard 在受支持的工具调用前检查明确边界：
+
+| 动作 | Guard 启用后的默认处理 |
+| --- | --- |
+| 在 `review`、`answer` 或 `monitor` 中写文件 | 停止 |
+| 添加依赖 | 询问；`deps=allow` 放行 |
+| 启动 subagent | 超出 `agents=N` 预算时停止 |
+| 添加可识别的 hash 操作 | 停止；`hash=allow` 放行 |
+| 写入 `files=` 之外的路径 | 停止 |
+
+Guard 不会看到 `cache`、`retry` 或 `migration` 就替你断定它们多余。宿主事件如何接入，见 [Adapter 合同](HOST-ADAPTER-CONTRACT.md)。
+
+## 可选：Stop That Shit Slop（别再废话）
+
+Agent 活干完了，嘴还没停。STSS 删掉无用辩护、收紧重复犹豫，保留影响理解与决定的条件。它也用于文章和图注，处理起草时附加的防御性说明。这是固定离线案例中的一组：
 
 ```text
-$stop-that-shit status
-$stop-that-shit runtime
-$stop-that-shit explain evt_...
-$stop-that-shit label evt_... correct|incorrect|inconclusive
+输入：我们也许大概有可能在六到八周内完成迁移，具体取决于访问审批。
+输出：预计六到八周完成迁移，前提是获得访问审批。
 ```
 
-`permission_deny_returned`（OpenCode 中为 `execution_denial_returned`）只表示 Guard 返回了拒绝响应，不证明宿主最终没有执行动作。Stop That Shit 始终把 host effect 标为 `unobserved`。
+时间范围和审批条件都保留。如果审批必须在工作开始前完成，就应明确写成“获得审批后，预计需要六到八周”。
 
-## AI Agent Guard 现在能拦什么
-
-| covered path 上的动作 | 默认处理 | 怎么放行 |
-| --- | --- | --- |
-| 在 `review`、`answer` 或 `monitor` 中写文件 | 停止 | 切换到 `change` |
-| 添加依赖 | 询问 | `deps=allow` |
-| 启动 subagent | 超出预算时停止 | `agents=N` |
-| 添加可识别的 hash 操作 | 停止 | `hash=allow` |
-| 写入文件锁之外的路径 | 停止 | 扩大 `files=` |
-
-Hook 必须收到受支持的事件和足够的输入才能判断。它不会看到 `cache`、`retry`、`migration` 或新文件这些词，就猜它们一定多余。Skill 用四个问题处理这种语义判断：
-
-1. 用户要求了吗？
-2. 不做它，当前结果能完成吗？
-3. 哪段可达的代码、数据或部署状态证明它有必要？
-4. 省掉它，当前验收会失败吗？
-
-证据撑不住时，agent 应该报告或暂缓，不要顺手实现。
-
-## Skill + Hook + Adapter 如何工作
-
-Skill 负责语义判断，Hook 在工具运行前检查明确边界，Adapter 把 Codex、Claude Code、OpenCode 和 Hermes Agent CLI 的事件翻译成同一套决策接口。其他 harness 需要提供等价的 before-action 事件；接口见 [HOST-ADAPTER-CONTRACT.md](HOST-ADAPTER-CONTRACT.md)。
-
-## 覆盖边界与公开证据
-
-Stop That Shit 负责 supported Hook 路径上的任务授权，安全隔离由宿主 sandbox 负责。[EVIDENCE.md](EVIDENCE.md) 记录测试、GPT-5.6 运行、无差异结果和未覆盖路径。
-
-维护者启用后没有再遇到“没有实际消费者却先生成 SHA-256”的动作；文档将这条个人观察与 paired eval 分开记录。本地 Runtime 只存元数据，并区分 checked action、context response、permission deny 和 `hostEffect: unobserved`。
-
-## 可选：只装 Skill
-
-如果不想启用命令 Hook，只安装 advisory Skill。Claude Code：
+完整插件包含 STSS；它也可以单独安装，不需要 Hook。在仓库根目录执行：
 
 ```bash
-mkdir -p ~/.claude/skills/stop-that-shit
-cp skills/stop-that-shit/SKILL.md ~/.claude/skills/stop-that-shit/SKILL.md
+npx skills add ./skills/stss --global
 ```
 
-Codex 仍可使用远程 Skill Installer：
+`rewrite` 改写文本，也是贴出文本时的默认模式；`audit` 只报告问题和最小修改建议。
 
-```text
-$skill-installer Install stop-that-shit from https://github.com/lennney/stop-that-shit/tree/0.1.0/skills/stop-that-shit
-```
+| 宿主 | 改写 | 审核 |
+| --- | --- | --- |
+| Codex | `$stss rewrite -- 把这个提案写直接。` | `$stss audit -- 找出防御性废话。` |
+| Claude Code 插件 | `/stop-that-shit:stss rewrite -- ...` | `/stop-that-shit:stss audit -- ...` |
+| Claude Code 单独 Skill | `/stss rewrite -- ...` | `/stss audit -- ...` |
+| Pi | `/skill:stss rewrite -- ...` | `/skill:stss audit -- ...` |
 
-新开任务后，独立 Claude Code Skill 用 `/stop-that-shit`，作为 plugin 安装时用 namespaced `/stop-that-shit:stop-that-shit`；Codex 用 `$stop-that-shit`。Skill-only 路径不需要 Hook 信任，但不能机器拦截越界动作，也不会改变宿主原有的 sandbox 和 approval 设置。
+完整方法见 [STSS Skill](skills/stss/SKILL.md)，成对案例和必须保留的反例见 [STSS examples](skills/stss/references/examples.md)。
 
-## 本地验证
+## FAQ
 
-```powershell
-npm test
-npm run eval
-npm run eval:paired -- --dry-run
-npm run release:check
-```
+**所以 checksum 都该删？**
 
-paired 命令默认只打印 72 个 cell 的计划，不会调用模型。真实运行必须使用只启用本插件的独立 Codex home。使用 `--run` 前，请先阅读[真实 Codex 对照测试说明](evals/codex-paired/README.md)。
+发布完整性校验、去重、跳过重复处理，都可以是实际用途。对照可信来源给出的预期摘要，发现文件不一致就拒绝使用，即使多算一次也值得。需要做就用 `hash=allow` 放行。Guard 检查授权，具体用途仍要根据任务判断。
 
-## 一起让 Agent 少造一点史
+**刚装上，为什么还没拦？**
 
-如果“别再造史了”说中你的经历，可以 [Star 这个仓库](https://github.com/lennney/stop-that-shit)，或把它发给那个不断往 `AGENTS.md` 里补规则的人。项目靠成对案例推进：
+安装后默认是 `OBSERVING / unconfirmed`。显式使用 `review`、`answer`、`monitor` 或 `change` 后，Guard 才进入 `ARMED`。`watch` 始终只观察。只装 Skill 则没有执行拦截。
 
-```text
-报告 -> 反例 -> 复现 -> 执行约束
-```
+**红章是不是说明动作绝对没执行？**
 
-- Codex 做了请求不需要的工作？[提交 Bad Case](https://github.com/lennney/stop-that-shit/issues/new?template=bad-case.yml)。
-- 某条规则会拦住真正必要的工作？[提交 Good Case](https://github.com/lennney/stop-that-shit/issues/new?template=good-case.yml)。
-- 有公开可复现的例子？把一组案例做成 fixture，然后提交 PR。
+`permission_deny_returned`（OpenCode 为 `execution_denial_returned`）表示 Guard 返回了拒绝响应。宿主最终是否执行要单独观测，所以 Runtime 将其记为 `hostEffect: unobserved`。安全隔离由宿主 sandbox 负责。
 
-一组有效案例只改一个关键事实，其余条件不变。Bad Case 标出该停的位置，Good Case 保住必要工作；只有可复现、高置信度的部分才进入 Guard。
+**会保存我的代码和对话吗？**
 
-提交前先看[案例库](cases/README.md)和[贡献指南](CONTRIBUTING.md)。请删掉私有代码、密钥、账号数据、完整对话和可识别身份的路径。一条小而清楚的脱敏 issue 就有价值。
+Runtime 事件不保存代码或对话正文；会话状态另存显式路径、关联 ID 和指令错误等控制信息。分享插件数据前应先检查会话状态，详见 [PRIVACY.md](PRIVACY.md)。
+
+**怎么更新、卸载或参与开发？**
+
+见[更新检查](INSTALL.md#check-for-updates)、[停用与卸载](INSTALL.md#disable-or-uninstall)、[本地开发](INSTALL.md#local-guard-development)和[更新记录](CHANGELOG.md)。
+
+## 把反例发过来
+
+Agent 又造史了？[提交 Bad Case](https://github.com/lennney/stop-that-shit/issues/new?template=bad-case.yml)。
+
+STS 拦住了真正必要的工作？[提交 Good Case](https://github.com/lennney/stop-that-shit/issues/new?template=good-case.yml)。这个同样重要。
+
+说清你的请求、它多做或少做了什么，以及哪个事实会改变判断。参考[案例库](cases/README_CN.md)，脱敏和复现方法见[贡献指南](CONTRIBUTING.md)。
+
+我不想再往 `AGENTS.md` 里补一百条“不要”，只希望新案例能让下一次判断更准。
+
+觉得有用，给个 [Star](https://github.com/lennney/stop-that-shit)。也欢迎在 [LINUX DO](https://linux.do) 交流。
 
 ## License
 

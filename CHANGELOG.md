@@ -1,8 +1,436 @@
 # Changelog
 
-## Unreleased
+## Unreleased / 未发布
 
-No unreleased changes yet.
+## 0.2.5 — 2026-10-15 (OMP and recovery / OMP 与恢复修复)
+
+- 对后置且未引用的独立指令返回 `DIRECTIVE_NOT_ARMED` 提示；Codex 同时
+  显示 systemMessage。保留首行授权边界，不从附件内容推断新权限。
+  / Report a standalone directive that follows other prompt content without
+  applying it. Codex also receives a user-facing message. Preserve the
+  first-line authority boundary; attachment parsing remains unproven.
+- STSS 覆盖文章、图注和新稿生成，按读者的理解与决定判断防御性说明，
+  保留必要的条件与来源归属；新增两组中英文成对案例及固定响应回归。
+  / Extend STSS to articles, captions, and drafting. Judge defensive wording
+  by its use to the reader, preserving meaningful conditions and attribution.
+  Add two paired case families in Chinese and English with fixed-response tests.
+- 新增 OMP 独立 Extension，支持原生 `/sts` 控制入口与子任务预算，
+  并通过共享控制器记录父关联恢复决策。公开 0.2.4 不包含此适配。
+  / Add a separate OMP Extension with native `/sts` commands, task budgets,
+  and audited parent-link recovery. Included in 0.2.5; absent from published 0.2.4.
+- 修复重复执行 ID 绕过并发预算、损坏账本归零和依赖段落变更漏判。
+  / Reject reused execution IDs, preserve ambiguous lifecycle capacity,
+  validate saved state, and detect dependency section changes.
+- 修复 #66：中文“只观察实际定时轮次”等对象范围描述保留既有 change 权限；
+  独立只读指令仍生效，嵌入 heartbeat 的指令不授予权限。
+  / Preserve existing change authority for Chinese observation objects.
+  Standalone read-only instructions still apply; embedded heartbeat directives
+  do not grant authority.
+
+- OpenCode 失败输入可重试，旧消息重试不再恢复过期权限；保留既有 plan/build 行为。
+  / Retry failed OpenCode inputs without restoring stale authority.
+- 保留损坏旧锁和已有状态，修复失败写入清理；共享 shell/hash 分类与依赖表判断。
+  / Preserve damaged legacy locks and saved state, clean failed writes, and
+  share shell/hash classification and dependency-table analysis.
+- 流式读取 runtime JSONL，普通工具回执跳过不必要的状态更新。
+  / Stream runtime JSONL reads and skip ordinary results before state updates.
+- 修复 CLI 缺失参数、评估变更路径检查和发布文本隐私扫描；自动发现测试文件，
+  统一本地与 CI 检查，并提供要求两个宿主的 `test:hosts` 命令。
+  / Validate CLI arguments and evaluation paths, scan shipped text formats,
+  discover test suites, and provide the required two-host acceptance command.
+- 更新 OpenCode schema 到 2.0.26，保留 Effect 4.0.0-rc.112；重建 Hermes runtime。
+  更新 CI 与扫描器 Action 的固定 SHA。
+  / Update OpenCode schema to 2.0.26, retain Effect 4.0.0-rc.112, regenerate
+  Hermes, and update pinned CI/scanner Actions.
+
+Validation is recorded in [EVIDENCE.md](EVIDENCE.md). No new model-effectiveness
+claim is made.
+
+**Full Changelog**: [0.2.4...0.2.5](https://github.com/lennney/stop-that-shit/compare/0.2.4...0.2.5)
+
+## 0.2.4 — 2026-09-28 (OpenCode V1/V2 compatibility / 双版本兼容)
+
+本版为同一个插件包增加 OpenCode V2 支持，并保留 V1 入口。
+已验证的宿主版本为 **OpenCode 1.18.18 和 2.0.18**。
+
+This release adds OpenCode V2 support to the existing plugin package and keeps
+the V1 entrypoint. Tested host versions: **OpenCode 1.18.18 and 2.0.18**.
+
+### 新增与修复 / Added and fixed
+
+- **双版本适配：** V1 server 与 V2 Effect 适配器共用 Guard 核心。V2 使用
+  原生工具错误拒绝受限动作，并允许后续合法操作继续。
+  / Native V1 and V2 adapters share the Guard core. V2 returns typed tool
+  errors for denied actions and allows subsequent permitted actions.
+- **合同与会话状态：** V2 根据已投递的根用户消息更新合同，处理子代理预算、
+  压缩后的消息去重和会话权限覆盖。
+  / V2 handles delivered root-user directives, child budgets, message
+  identity after compaction, and session permission overrides.
+- **加载与反馈：** 修复本地目录入口、排队后使用旧权限，以及工具或子上下文
+  先同步消息时丢失 status/runtime 回复的问题。
+  / Fix local directory loading, stale permissions after waiting, and lost
+  status/runtime replies when tool or child hooks process a message first.
+- **会话并发：** 按根会话串行，避免无关会话互相等待；V1 延迟加载 V2 实现。
+  / Serialize work per root session so unrelated roots can proceed. V1 defers
+  loading the V2 implementation.
+
+### 升级 / Updating
+
+按所用宿主的流程更新至 `0.2.4`，然后重启或重新加载宿主。
+OpenCode V2 本地安装应指向包含 `package.json` 的目录。
+Codex 用户应重新审查并信任发生变化的 Hook 定义。
+具体步骤见本版本的 [安装说明](https://github.com/lennney/stop-that-shit/blob/0.2.4/INSTALL.md)。
+
+Update to `0.2.4` through your host's installation flow, then restart or reload
+the host. For a local OpenCode V2 install, select the directory containing
+`package.json`. Codex users must review and trust changed Hook definitions.
+See the versioned installation guide above.
+
+### 验证范围 / Verification scope
+
+发布时验证：428 项测试通过、3 项可选宿主测试跳过，18/18 成对案例通过。
+另行启用的真实 OpenCode 打包安装测试在 V1/V2 均通过，覆盖 review 拒写且文件
+未创建、拒绝后继续读取、重启后显式 change 写入。
+
+Release checks: 428 tests passed, three optional host checks skipped, and
+18/18 paired-case arms passed. Separate packed-plugin tests passed in both
+OpenCode versions: review denied a write without creating the file, reading
+continued, and explicit change allowed a write after restart.
+
+宿主测试使用确定性本地模型替身，未验证真实模型效果；未覆盖后台子代理，
+也未验证 GitHub 来源安装。Code Mode 的直接 JavaScript/network 副作用不在
+完整工具拦截覆盖内。详见本版本的
+[验证记录](https://github.com/lennney/stop-that-shit/blob/0.2.4/EVIDENCE.md)。
+
+Host tests used a deterministic local model stand-in. They do not establish
+model effectiveness, background-child behavior, or GitHub-source installation.
+Tool hooks do not fully cover direct Code Mode JavaScript/network effects.
+See the versioned evidence above.
+
+**Full Changelog**: [0.2.3...0.2.4](https://github.com/lennney/stop-that-shit/compare/0.2.3...0.2.4)
+ · [PR #64](https://github.com/lennney/stop-that-shit/pull/64)
+
+## 0.2.3 — 2026-09-24 (Read-only boundaries and Codex delegation / 只读边界与 Codex 委派)
+
+`review` 中的复合命令现在会检查每一步：先读取、后写入，仍按写入拒绝。
+Codex 带命名空间的委派也受 `agents=0` 约束。其余改动涉及会话结束、
+拒绝原因、扫描报告和案例文档。
+
+In `review`, Guard checks every command in a supported shell chain; a read
+cannot hide a later write. Namespaced Codex delegation also obeys `agents=0`.
+The patch also updates session-end handling, decision reasons, scan reports,
+and case documentation.
+
+### 主要修复 / Main fixes
+
+- **复合命令（[#52](https://github.com/lennney/stop-that-shit/pull/52)）：**
+  `git status --short; git config --local ...` 这类混合读写命令链在 `review`
+  中会被拒绝；纯读取链和已授权的 `change` 不受这项只读限制。
+  会执行程序的 `rg` 选项与会写文件的 Git 输出选项也会被识别，搜索文本和
+  选项值仍按字面处理。
+  / Mixed read/write chains are denied in `review`; read-only chains and
+  authorized `change` work remain allowed. The check covers executable `rg`
+  options and writing Git output options without misreading literal values.
+- **命名空间委派（[#53](https://github.com/lennney/stop-that-shit/pull/53)）：**
+  Codex 的受支持启动调用受 `agents=0` 约束；状态读取、等待和相关完成证据
+  仍分别处理。打包清单只注册适配器处理的 `UserPromptSubmit`、`PreToolUse`、
+  `PostToolUse` 和 `SessionEnd`。
+  / Supported namespaced spawn calls obey `agents=0`; status, wait, and
+  correlated completion retain their own handling. The manifest lists only
+  events the adapter handles.
+- **Codex 会话结束（[#51](https://github.com/lennney/stop-that-shit/pull/51)、
+  [#54](https://github.com/lennney/stop-that-shit/pull/54)）：** `SessionEnd`
+  使用 3 秒超时。普通结束通知只读状态，不再争用写锁；明确的完成事实仍串行更新。
+  / `SessionEnd` uses the supported three-second timeout. Ordinary end events
+  read state without a writer lock; explicit completion facts remain serialized.
+- **拒绝原因（[#55](https://github.com/lennney/stop-that-shit/pull/55)）：**
+  五套宿主适配器共用动作分析。拒绝和解释查询给出固定分类原因；Runtime
+  仍只记录元数据，不保存原始命令。
+  / Five host adapters share action analysis. Denial and explain output include
+  fixed reasons; Runtime stores metadata, not raw commands.
+
+### 发布证据与案例 / Release evidence and cases
+
+- **扫描报告（[#56](https://github.com/lennney/stop-that-shit/pull/56)）：**
+  未取消的扫描若已生成 SARIF，即使失败也保留报告；失败结果和严重级别门槛
+  继续生效。/ CI keeps generated SARIF from non-cancelled failed scans; failure
+  and severity gates still apply.
+- **案例（[#59](https://github.com/lennney/stop-that-shit/pull/59)）：**
+  案例目录补充已有 Bad/Good fixture 的关键事实与下一步。
+  [Issue #5](https://github.com/lennney/stop-that-shit/issues/5) 因原始材料不可得
+  归档为未复现报告，未新增规则或效果计数。
+  / The catalogue explains existing Bad/Good fixtures. Issue #5 is archived
+  as unreproduced because its source material is unavailable; it adds no rule
+  or effectiveness count.
+- **版本与安装：** 包和宿主插件清单升至 `0.2.3`。中英文 README 保留产品故事
+  与成对案例，韩文 README 保留原有说明；完整安装与 Hook 审查见
+  [INSTALL.md](INSTALL.md)。
+  `release:check` 对照 `package.json` 检查当前固定 tag 的命令和链接。
+  / Package and host-plugin manifests are `0.2.3`. The Chinese and English
+  READMEs keep their story and cases; the Korean guide stays in place.
+  `release:check` verifies current pinned commands and links.
+
+### 升级与验证 / Updating and verification
+
+更新后重启宿主。在新的 Codex CLI TUI 中打开 `/hooks`，对照**所安装 tag** 的
+[`hooks/codex-hooks.json`](hooks/codex-hooks.json) 审查并信任命令。Hook 定义
+变化时可能需要重新确认。步骤见 [INSTALL.md](INSTALL.md#review-the-packaged-hooks)。
+
+Restart the host after updating. In a fresh Codex CLI TUI, compare `/hooks`
+with the **installed tag's** manifest and trust the reviewed commands.
+Changed Hook definitions may need another review. See
+[INSTALL.md](INSTALL.md#review-the-packaged-hooks).
+
+候选版有 417 项测试通过、1 项跳过，18/18 成对案例通过；Hermes、发布检查
+和 199 个文件的包白名单核对通过。隔离调用打包 Hook 覆盖只读拒绝、授权放行
+及 #52/#53 的关键回归。Codex CLI 0.153.4 的隔离安装与 Hook 信任通过，
+一次性仓库中的 `review` 拒绝和 `change` 放行也已核对。验证范围见
+[EVIDENCE.md](EVIDENCE.md)。
+
+Candidate checks: 417 tests passed, one skipped; 18/18 paired-case arms,
+Hermes and release checks, and the 199-file package allowlist passed.
+Isolated packaged-Hook calls covered read-only denial, authorized work,
+and the key #52/#53 regressions. An isolated Codex CLI 0.153.4 install listed
+the packaged Hooks as active; a disposable workspace confirmed a `review`
+deny and an authorized `change` write. See [EVIDENCE.md](EVIDENCE.md) for scope.
+
+**Full Changelog**: [0.2.2...0.2.3](https://github.com/lennney/stop-that-shit/compare/0.2.2...0.2.3)
+
+## 0.2.2 — 2026-09-14 (Authorization, lifecycle, and Skill updates / 授权、生命周期与 Skill 更新)
+
+### 修复 / Fixed
+
+- **Explicit directive entry**：正式指令必须位于消息的首个非空行，不能包在
+  引用或代码块中。正文中的示例不再设置权限，字段解析也不再跨行读取。
+  未知字段或相互冲突的值会报告错误并保留原合同。
+  / Directives must start the first non-empty line, outside quotes and code
+  blocks. Embedded examples and later lines no longer set directive fields.
+  Unknown fields or conflicting values return an error without changing the
+  previous contract. Put task text after `--`, `: `, or a newline.
+- 自然语言纠正会跳过代码示例、显式 Markdown 引用行和带引号的文本。
+  在 README 中添加 `review only` 示例不再把当前编辑任务切成只读；
+  正文中的真实只读要求仍然生效。
+  / Natural-language corrections skip code examples, explicit Markdown quote
+  lines, and quoted text. Documenting `review only` no longer changes an active
+  edit task to review. Actual review instructions in prose still apply.
+- OpenCode 和 Hermes 显示无效指令错误，并暂停工具调用直到用户提交纠正指令。
+  Pi 显示错误并拒绝启动该输入对应的模型回合；通知失败也不会放行。
+  / OpenCode and Hermes report invalid instructions and pause tool calls until
+  the user corrects the instruction. Pi shows the error and handles the input
+  without starting a model turn, even if feedback delivery fails.
+- Runtime 查询与标注命令遵守相同的首行规则，缩进示例不能写入标注。
+  / Runtime queries and label commands use the same first-line rule.
+  Indented examples cannot write annotations.
+- Claude slash 指令转换保留缩进与换行边界，不把代码示例转换为授权。
+  / Claude slash normalization preserves indentation and line boundaries
+  instead of turning code examples into authorization.
+- OpenCode 引用中的指令不再触发可编辑模式的隐式授权；分段消息中的字段必须
+  留在首行，后续部分作为正文。/ Quoted directives suppress OpenCode's
+  implicit editable-agent promotion. Keep directive fields on the first line
+  of a multipart message; later parts are task text.
+
+- Corrected Hermes terminal `failed` results so synchronous batches and bound
+  background children return their reserved capacity after a confirmed failure.
+- Added adapter-owned lifecycle declarations. Historical adapters that import
+  a new core's protocol number can no longer masquerade as current adapters or
+  release reservations through old stop semantics.
+- Shared policy handling of invalid-directive residue respects watch/off;
+  permitted work remains accounted for when the session returns to Guard.
+  This is separate from rejecting invalid input at the host adapter. Submit a
+  valid directive to clear an OpenCode or Hermes input pause, including when
+  selecting watch/off.
+- Centralized delegation facts, reservation transitions, and per-call unresolved
+  activity. Confirmed terminal evidence releases the corresponding call;
+  unknown bounded results retain only their original reserved capacity.
+- Added explicit Claude auto-denial recovery, OpenCode result-based accounting,
+  Pi whole-chain completion, Codex spawn/wait correlation, and Hermes dispatch
+  alias correlation. Timeout and stop-attempt signals no longer imply completion.
+- Contract and lifecycle mutations share one session transaction. State reads
+  do not write migrations. Schema 4 preserves old budgets, including zero,
+  and carries forward unresolved legacy history.
+- ControlEvent v2 separates lifecycle facts from request flags. Undeclared
+  lifecycle events are not completion evidence. Finite Guard detects old
+  delegation/control adapters. Runtime counts describe reserved
+  upper bounds rather than measured active processes.
+- Hermes task counting now follows the host's JSON-array and empty-batch inputs,
+  closing two paths that could bypass `agents=0`.
+
+- **Active agent limit**：恢复 `agents=N` 作为正式的活动并发上限，默认不限，
+  `agents=0` 禁止 delegation，batch 超限整批拒绝；迁移保留旧的有效
+  `agentBudget`（包括 `0`）。/ Restored `agents=N` as the formal active
+  concurrency limit with an unlimited default, atomic batch rejection, and
+  migration that preserves a valid old `agentBudget`, including `0`.
+- **Lifecycle-safe concurrency**：整次调用完成或已关联子代理的实际终结才释放名额；
+  后台或未知状态保留到可靠完成证据，停止尝试和会话结束不自动清空。
+  / Confirmed joined results or bound-child termination release capacity.
+  Stop attempts and session-end notifications alone do not clear reservations.
+  Adapters use explicit host IDs rather than FIFO guesses.
+
+### 依赖 / Dependencies
+
+- 将 Ajv 的间接开发依赖 `fast-uri` 从 3.1.5 更新到 3.1.6，修复已报告的
+  安全告警；不改变 Ajv 或其他依赖版本。
+  / Updates Ajv's transitive development dependency `fast-uri` from 3.1.5
+  to 3.1.6 to address reported security advisories. Ajv and the other
+  dependency versions are unchanged.
+
+### Skill 与文档 / Skill and documentation
+
+- **Stop Ladder — [#46](https://github.com/lennney/stop-that-shit/pull/46)**：以完整履行任务责任为起点，先采用直接方案，再根据真实
+  缺口扩展；保留必要验证、兼容与迁移，不把少写代码当作目标。
+  / The Skill starts with the complete task responsibility, uses a direct
+  solution, and expands when a concrete gap requires it. Necessary validation,
+  compatibility, and migration remain part of the task; shorter code is not
+  the goal.
+- **Korean README — [#47](https://github.com/lennney/stop-that-shit/pull/47)**：加入韩语 README 和语言入口，保留已有社区讨论链接。
+  / Adds a Korean README and language links, and retains community discussion
+  links.
+- 同步 package、插件清单、安装版本引用和 Hook 检查说明。
+  / Aligns package and plugin versions, pinned installation references, and
+  Hook review instructions.
+- 发布清单和安装包补齐韩语 README 与旧中文兼容入口；安装文档补充验证前的
+  依赖安装步骤，并说明会话状态与 Runtime 元数据的区别。
+  / Includes the Korean README and legacy Chinese entry in release and package
+  manifests. Documents development dependency setup and separates session
+  state from metadata-only runtime events.
+
+### 贡献与反馈 / Credits
+
+- 感谢 @Kazaorus 在 [#44](https://github.com/lennney/stop-that-shit/issues/44)
+  报告 `agents=N` 被静默截断至 8 和累计计数的问题，并发起、持续修订
+  [#45](https://github.com/lennney/stop-that-shit/pull/45)。这是其在本仓库首个合并的 PR。
+  / Thanks to @Kazaorus for reporting the silent cap and cumulative counting
+  in #44, and for opening and revising #45, their first merged PR here.
+- 感谢 @KumaCool 在 [#44 的讨论](https://github.com/lennney/stop-that-shit/issues/44#issuecomment-5594846899)
+  中补充使用反馈，帮助明确限制应针对同时运行的子代理，而不是累计委派次数。
+  / Thanks to @KumaCool for usage feedback that helped clarify concurrent
+  capacity rather than cumulative delegation counts.
+- 维护者 @lennney 完成 #45 的后续生命周期修复与审查，以及
+  [LINUX DO 社区链接 #42](https://github.com/lennney/stop-that-shit/pull/42)、
+  [Skill 与 README 更新 #46](https://github.com/lennney/stop-that-shit/pull/46)
+  和[韩语 README #47](https://github.com/lennney/stop-that-shit/pull/47)。
+  / Maintainer @lennney completed the lifecycle follow-up fixes and review
+  in #45, community links in #42, Skill and README updates in #46, and the
+  Korean README in #47.
+
+### 升级说明 / Upgrade notes
+
+- `agents=N` 表示预留并发容量，不是整个会话累计调用次数。新会话默认不限；
+  旧会话的有效预算（包括 `0`）会保留。
+  / `agents=N` limits reserved concurrent capacity, not cumulative calls.
+  New sessions default to unlimited. Valid existing budgets, including `0`,
+  are preserved.
+- Schema 4 迁移保留无法确认结束的历史活动。有限额的 Guard 需要匹配的终结证据，
+  或开启新宿主会话；升级与 SessionEnd 不会自动清空这些记录。
+  / Schema 4 preserves unresolved legacy activity. Finite Guard requires
+  matching terminal evidence or a new host session. Upgrading or receiving
+  SessionEnd does not clear that history.
+- 升级后按宿主要求重启或重新加载；Codex 用户应重新检查新增或变化的 Hook。
+  / Restart or reload as required by the host. Codex users must review new or
+  changed Hooks. See [INSTALL.md](INSTALL.md#review-the-packaged-hooks).
+- 此版本不加入自动续跑或通用任务完成判定，也不宣称模型效果提升。
+  / This version adds no automatic continuation or general task-completion
+  judge. It makes no new model-effectiveness claim.
+
+## 0.2.1 — 2026-09-03 (Scoped Guard false-allow fixes / 受限 Guard 误放行修复)
+
+### 修复 / Fixed
+
+- **Scoped file locks — #31**：`files=` 现在保留路径原始大小写，并在比较时统一
+  绝对 allowlist 与宿主基于 `cwd` 报告的相对路径；Windows 盘符也不再被误当成
+  指令分隔符。/ `files=` now preserves path casing, compares absolute
+  allowlists with host paths normalized relative to `cwd`, and accepts Windows
+  drive letters without treating their colon as a directive delimiter.
+- **Scoped file locks — #33**：窄 `files=` 边界现在会要求批准无法证明只读性和目标路径的
+  未知工具，而不是把它们当作 `WITHIN_CONTRACT` 放行；显式 `files=**` 仍保留
+  change 模式下的宽边界。/ Narrow `files=` scopes now require approval for
+  unknown tools whose mutability and target paths are unproven instead of
+  allowing them as `WITHIN_CONTRACT`; explicit `files=**` remains unbounded.
+
+- **Scoped file locks — #34**：显式空值 `files=` 现在表示不允许写入任何文件，不再静默
+  退化成无边界 change；省略 `files` 仍保持原有行为。/ An explicit empty
+  `files=` value now allows no file writes instead of silently degrading to an
+  unbounded change contract; omitting `files` preserves the existing behavior.
+- **Scoped file locks — #35**：在比较 `files=` 边界前规范化 `.`、`..` 和重复路径
+  分隔符，阻止写入通过 dot segment 逃出声明的 wildcard 范围，同时保留范围内
+  的等价路径。/ Normalizes dot segments and repeated separators before
+  comparing `files=` boundaries, preventing writes from escaping a declared
+  wildcard scope while preserving equivalent in-scope paths.
+- **Windows path matching — #36**：Windows 风格的 `files=` 边界现在按平台语义忽略
+  路径大小写，同时保留 POSIX 路径的大小写敏感比较。/ Windows-style
+  `files=` boundaries now compare path casing using Windows semantics while
+  POSIX paths remain case-sensitive.
+
+## 0.2.0 — 2026-09-01 (Stop That Shit Slop / 别再废话)
+
+> **从多做一步，到多说一句。** Stop That Shit Slop 把任务边界判断带到提案和
+> 决策文字：判断一句话该删、该收紧、该移动，还是留下。
+>
+> **From one extra action to one extra sentence.** Stop That Shit Slop applies
+> task-boundary judgment to proposals and decision-facing writing: drop,
+> calibrate, relocate, or keep each sentence.
+
+### 新增 / New
+
+- **独立 STSS Skill**：增加 `rewrite` 与 `audit` 两种模式，处理没有决策
+  消费者的免责声明、多层 hedging、自我辩护、负向范围和空洞提案话术。
+  / Adds a standalone STSS Skill with `rewrite` and `audit` modes for
+  disclaimers without a decision consumer, hedge stacks, self-defense,
+  negative scope, and hollow proposal language.
+- **Claim-preserving method**：使用 Claim Ledger、Sentence Consumer Test 和
+  Claim Diff，核对原文中的事实、数字、责任主体、证据强度和因果关系。
+  / Uses a Claim Ledger, Sentence Consumer Test, and Claim Diff to check the
+  supplied facts, numbers, actors, evidence strength, and causal relationships.
+- **离线验收**：增加六组 Good/Bad CaseBundle、十二个合成 fixture 和对应的
+  固定离线响应回归。/ Adds six Good/Bad CaseBundle families, twelve synthetic
+  fixtures, and matching fixed offline-response regressions.
+- **分发与文档**：完整插件可发现两个 Skill；Pi package 注册 STSS；同一源码
+  目录也支持单独安装 STSS。中英文 README 改为“别再造史，也别再废话”的
+  双 Skill 结构。/ Makes both Skills discoverable from the full plugin,
+  registers STSS in the Pi package, and supports standalone STSS installation
+  from the same source directory. The Chinese and English READMEs now present
+  the two-Skill product.
+- **显式更新检查**：`sts doctor --check-update` 在用户调用时查询 GitHub
+  Release，返回 `installed`、`latest` 和 `releaseUrl`；STSS 的单独安装继续由
+  宿主或 Skill Installer 更新。/ `sts doctor --check-update` queries GitHub
+  Releases when invoked and returns `installed`, `latest`, and `releaseUrl`;
+  the host or Skill Installer manages standalone STSS updates.
+
+## 0.1.1 — 2026-09-01 (Evaluation and boundary refinements / 评估与边界收敛)
+
+> **在 0.1.0 的四套宿主基础上加入 Pi，并把评估证据拆开。** 0.1.1
+> 增加 Pi 原生 Extension，同时补齐 routing、Hook decision、task
+> acceptance 和 host effect 的独立观测边界。
+>
+> **Adds Pi to the 0.1.0 host set and separates evaluation evidence.**
+> Version 0.1.1 adds the native Pi Extension and keeps routing, Hook
+> decisions, task acceptance, and host effects as separate observations.
+
+### 新增 / New
+
+- **Pi Adapter**：支持 `@earendil-works/pi-coding-agent` `0.84.4`，复用共享
+  controller、Skill 和 metadata-only Runtime；文档化的 `subagent` 形式在
+  父工具调用处做原子预算控制，不宣称跨进程继承契约。
+  / Adds the Pi Adapter for `@earendil-works/pi-coding-agent` `0.84.4`,
+  reusing the shared controller, Skill, and metadata-only Runtime. Documented
+  `subagent` forms are budgeted atomically at the parent call; cross-process
+  contract inheritance is not claimed.
+- **Paired evaluation vNext**：加入不可变 Skill/CaseBundle digest；将 22 个
+  implicit-routing case 拆为 required、optional、irrelevant 三类，并单独验收
+  行为；三单元 host integration smoke 覆盖 mode deny、file-lock deny 和 allow。
+  默认成对矩阵为 16 cases × 3 arms × 3 runs = 144 个 session，默认仍只生成
+  计划。
+  / Adds immutable Skill and CaseBundle digests. The 22 implicit-routing cases
+  separate required, optional, and irrelevant routing from behavior acceptance.
+  A three-cell host integration smoke covers mode deny, file-lock deny, and
+  allow. The default paired matrix is 16 cases × 3 arms × 3 runs = 144 sessions
+  and remains dry-run by default.
+- **发布与验证边界**：保留 Good Case、基础设施错误、Hook decision 与
+  `hostEffect` 的分离，不把 deny 返回或离线 plan 包装成宿主阻断或模型效果
+  结论。
+  / Keeps Good Cases, infrastructure errors, Hook decisions, and
+  `hostEffect` separate; a returned deny or offline plan is not presented as
+  host enforcement or model-effect evidence.
 
 ## 0.1.0 — 2026-08-20 (First Multi-platform Release / 首个多平台版本)
 

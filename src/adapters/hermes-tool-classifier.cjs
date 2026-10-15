@@ -1,11 +1,11 @@
 'use strict';
 
+const { manifestEditDependencyIntent, manifestDependencyIntent, patchDependencyIntent } = require('../manifest-dependencies.cjs');
+
 const nodePath = require('node:path');
-const {
-  classifyShell,
-  detectDependencyIntent: detectCodexDependencyIntent,
-  detectHashIntent: detectCodexHashIntent
-} = require('./codex-tool-classifier.cjs');
+const { analyzeShellInput, classifyShell } = require('../shell-analysis.cjs');
+const { detectDependencyIntent: detectCodexDependencyIntent } = require('./codex-tool-classifier.cjs');
+const { detectHashIntent: detectToolHashIntent } = require('../hash-intent.cjs');
 
 const READ_TOOLS = new Set([
   'read_file',
@@ -28,7 +28,14 @@ function isHermesDelegationControl(toolName, toolInput) {
 function countHermesDelegation(toolName, toolInput) {
   if (toolName !== 'delegate_task' || isHermesDelegationControl(toolName, toolInput)) return 0;
   const input = toolInput && typeof toolInput === 'object' ? toolInput : {};
-  if (Array.isArray(input.tasks)) return input.tasks.length;
+  let tasks = input.tasks;
+  // Match Hermes' task-list normalization: recover only JSON arrays; an empty
+  // array falls back to goal. Invalid strings are rejected before any spawn.
+  if (typeof tasks === 'string') {
+    try { tasks = JSON.parse(tasks); } catch { return 0; }
+    if (!Array.isArray(tasks)) return 0;
+  }
+  if (Array.isArray(tasks) && tasks.length) return tasks.length;
   if (typeof input.goal === 'string' && input.goal.trim()) return 1;
   return 0;
 }
@@ -108,82 +115,34 @@ function codexToolName(toolName, toolInput) {
   return String(toolName || '');
 }
 
-const HERMES_MANIFEST = /(?:^|\/)(?:package\.json|pyproject\.toml|requirements[^/]*\.txt|Cargo\.toml|go\.mod|composer\.json|Gemfile)$/i;
-const JSON_DEPENDENCY_FIELD = /["']?(?:dependencies|devDependencies|optionalDependencies|require)["']?\s*[:=]/i;
-const REQUIREMENT_DECLARATION = /^\s*[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[^\]\r\n]+\])?\s*(?:(?:===|==|~=|!=|<=|>=|<|>|\^)\s*\S+)?(?:\s*;.*)?$/;
-const CARGO_ASSIGNMENT = /^\s*[A-Za-z0-9][A-Za-z0-9_-]*\s*=\s*(?:["']|\{)/;
-const GO_REQUIRE_DECLARATION = /^\s*(?:require\s+\S+\s+v\d|[A-Za-z0-9_.\/-]+\s+v\d)/m;
-const GEM_DECLARATION = /^\s*gem\s+["']/;
-
-function isCargoDependencySection(section) {
-  return /(?:^|\.)(?:dependencies|dev-dependencies|build-dependencies)(?:\.|$)/.test(section);
-}
-
-function detectHermesManifestDependency(filePath, content) {
-  const normalizedPath = String(filePath || '').trim().replace(/\\/g, '/');
-  const text = String(content || '');
-  if (!HERMES_MANIFEST.test(normalizedPath)) return false;
-
-  if (/(?:^|\/)(?:package\.json|pyproject\.toml|composer\.json)$/i.test(normalizedPath)) {
-    return JSON_DEPENDENCY_FIELD.test(text);
-  }
-  if (/(?:^|\/)requirements[^/]*\.txt$/i.test(normalizedPath)) {
-    return text.split(/\r?\n/).some((line) => REQUIREMENT_DECLARATION.test(line));
-  }
-  if (/(?:^|\/)Cargo\.toml$/i.test(normalizedPath)) {
-    let dependencySection = false;
-    for (const line of text.split(/\r?\n/)) {
-      const header = /^\s*\[([^\]]+)\]\s*$/.exec(line);
-      if (header) dependencySection = isCargoDependencySection(header[1]);
-      if (dependencySection && CARGO_ASSIGNMENT.test(line)) return true;
-    }
-    return false;
-  }
-  if (/(?:^|\/)go\.mod$/i.test(normalizedPath)) return GO_REQUIRE_DECLARATION.test(text);
-  if (/(?:^|\/)Gemfile$/i.test(normalizedPath)) return GEM_DECLARATION.test(text);
-  return false;
-}
-
-function hermesPatchSections(text) {
-  const sections = [];
-  let current = null;
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const header = /^\*\*\*\s*(?:Add|Update)\s+File:\s*(.+?)\s*$/.exec(line);
-    if (header) {
-      current = { path: header[1], content: [] };
-      sections.push(current);
-      continue;
-    }
-    if (/^\*\*\*/.test(line)) {
-      current = null;
-      continue;
-    }
-    if (!current) continue;
-    if (/^\+(?!\+\+)/.test(line) || /^ /.test(line)) current.content.push(line.slice(1));
-  }
-  return sections;
-}
-
 function detectDependencyIntent(toolName, toolInput) {
+  if (toolName === 'terminal') return analyzeShellInput(codexIntentInput(toolName, toolInput)).dependencyIntent;
   const name = codexToolName(toolName, toolInput);
   const input = codexIntentInput(toolName, toolInput);
-  if (name === 'Write') {
-    return detectHermesManifestDependency(input.path, input.content);
-  }
-  if (name === 'apply_patch') {
-    const sections = hermesPatchSections(input.patch);
-    if (sections.some((section) => detectHermesManifestDependency(section.path, section.content.join('\n')))) return true;
-    const normalizedPatch = String(input.patch || '').replace(/^\*\*\*(?=(?:Add|Update|Delete)\s+File:)/gm, '*** ');
-    return detectCodexDependencyIntent(name, { ...input, patch: normalizedPatch });
-  }
+  if (toolName === 'patch' && name === 'Write') return manifestEditDependencyIntent(input.path, toolInput.old_string, input.content);
+  if (name === 'Write') return manifestDependencyIntent(input.path, input.content);
+  if (name === 'apply_patch') return patchDependencyIntent(input.patch);
   return detectCodexDependencyIntent(name, input);
 }
 
 function detectHashIntent(toolName, toolInput) {
-  return detectCodexHashIntent(codexToolName(toolName, toolInput), codexIntentInput(toolName, toolInput));
+  if (toolName === 'terminal') return analyzeShellInput(codexIntentInput(toolName, toolInput)).hashIntent;
+  return detectToolHashIntent(codexToolName(toolName, toolInput), codexIntentInput(toolName, toolInput));
+}
+
+function analyzeHermesTool(toolName, toolInput, cwd) {
+  const analysis = toolName === 'terminal'
+    ? analyzeShellInput(codexIntentInput(toolName, toolInput))
+    : {
+      mutability: classifyHermesTool(toolName, toolInput),
+      hashIntent: detectHashIntent(toolName, toolInput),
+      dependencyIntent: detectDependencyIntent(toolName, toolInput)
+    };
+  return { ...analysis, affectedPaths: extractAffectedPaths(toolName, toolInput, cwd) };
 }
 
 module.exports = {
+  analyzeHermesTool,
   classifyHermesTool,
   countHermesDelegation,
   extractAffectedPaths,

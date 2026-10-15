@@ -1,12 +1,11 @@
 'use strict';
 
+const { manifestEditDependencyIntent, manifestDependencyIntent } = require('../manifest-dependencies.cjs');
+
 const nodePath = require('node:path');
-const {
-  classifyCodexTool,
-  classifyShell,
-  detectDependencyIntent: detectCodexDependencyIntent,
-  detectHashIntent: detectCodexHashIntent
-} = require('./codex-tool-classifier.cjs');
+const { analyzeShellInput, classifyShell } = require('../shell-analysis.cjs');
+const { classifyCodexTool } = require('./codex-tool-classifier.cjs');
+const { containsHashApi, detectHashIntent: detectToolHashIntent } = require('../hash-intent.cjs');
 
 const CLAUDE_READ_TOOLS = new Set([
   'Read',
@@ -44,10 +43,6 @@ const CLAUDE_CONTROL_TOOLS = new Set([
   'ToolSearch',
   'WaitForMcpServers'
 ]);
-
-const MANIFEST_PATH = /(?:^|\/)(?:package\.json|pyproject\.toml|requirements[^/]*\.txt|Cargo\.toml|go\.mod|composer\.json|Gemfile)$/i;
-const DEPENDENCY_DECLARATION = /["']?(?:dependencies|devDependencies|optionalDependencies|peerDependencies)["']?\s*[:=]|(?:^|\n)\s*[^#\s][^\r\n]*(?:==|>=|~=|\^\d)/i;
-const HASH_API = /\b(?:createHash|createHmac)\s*\(|\bcrypto\.subtle\.digest\s*\(|\bhashlib\.(?:md5|sha1|sha224|sha256|sha384|sha512|blake2[bs])\s*\(|\bMessageDigest\.getInstance\s*\(|\bDigestUtils\.[A-Za-z0-9_]+\s*\(|\bsha(?:1|256|512)\.(?:New|Sum\w*)\s*\(|\b(?:bcrypt|argon2)\.hash\s*\(|\bpassword_hash\s*\(|\bPasswordHasher\s*\(/i;
 
 function isWindowsAbsolute(value) {
   return /^[A-Za-z]:[\\/]/.test(String(value || '')) || /^\\\\[^\\]+\\[^\\]+/.test(String(value || ''));
@@ -105,7 +100,7 @@ function classifyClaudeTool(toolName, toolInput) {
   return classifyCodexTool(name, toolInput);
 }
 
-function extractAffectedPaths(toolName, toolInput, cwd) {
+function extractAffectedPaths(toolName, toolInput, cwd, mutability) {
   const name = String(toolName || '');
   let value = '';
 
@@ -113,7 +108,7 @@ function extractAffectedPaths(toolName, toolInput, cwd) {
     value = toolInput && (toolInput.file_path || toolInput.path);
   } else if (name === 'NotebookEdit') {
     value = toolInput && toolInput.notebook_path;
-  } else if (toolInput && typeof toolInput === 'object' && classifyCodexTool(name, toolInput) === 'write') {
+  } else if (toolInput && typeof toolInput === 'object' && (mutability ?? classifyCodexTool(name, toolInput)) === 'write') {
     // For third-party/MCP mutating tools, only trust an explicit single path
     // field. Read-only tools do not participate in the write boundary. If a
     // mutating tool has no provable path, the controller's file lock fails closed.
@@ -126,35 +121,52 @@ function extractAffectedPaths(toolName, toolInput, cwd) {
 
 function detectHashIntent(toolName, toolInput) {
   const name = String(toolName || '');
-  if (name === 'PowerShell' || name === 'Monitor') {
-    return detectCodexHashIntent('Bash', toolInput);
+  if (name === 'Bash' || name === 'PowerShell' || name === 'Monitor') {
+    return analyzeShellInput(toolInput).hashIntent;
   }
   if (name === 'NotebookEdit') {
-    return HASH_API.test(inputText(toolInput));
+    return containsHashApi(inputText(toolInput));
   }
-  return detectCodexHashIntent(name, toolInput);
+  return detectToolHashIntent(name, toolInput);
 }
 
 function detectDependencyIntent(toolName, toolInput, cwd) {
   const name = String(toolName || '');
-  if (name === 'PowerShell' || name === 'Monitor') {
-    return detectCodexDependencyIntent('Bash', toolInput);
-  }
-  if (name === 'Bash') {
-    return detectCodexDependencyIntent(name, toolInput);
+  if (name === 'Bash' || name === 'PowerShell' || name === 'Monitor') {
+    return analyzeShellInput(toolInput).dependencyIntent;
   }
   if (name !== 'Write' && name !== 'Edit') return false;
 
   const filePath = normalizePath(toolInput && (toolInput.file_path || toolInput.path), cwd);
-  if (!MANIFEST_PATH.test(filePath)) return false;
+  return name === 'Write'
+    ? manifestDependencyIntent(filePath, toolInput && toolInput.content)
+    : manifestEditDependencyIntent(filePath, toolInput && toolInput.old_string, toolInput && toolInput.new_string);
+}
 
-  if (name === 'Write') {
-    return DEPENDENCY_DECLARATION.test(String(toolInput && toolInput.content || ''));
+function analyzeClaudeTool(toolName, toolInput, cwd) {
+  const name = String(toolName || '');
+  let analysis;
+  if (name === 'Bash' || name === 'PowerShell' || name === 'Monitor') {
+    analysis = analyzeShellInput(toolInput);
+    if (name === 'Monitor' && toolInput && toolInput.ws && !toolInput.command) {
+      analysis.mutability = 'read';
+      delete analysis.analysisReason;
+    }
+  } else {
+    analysis = {
+      mutability: classifyClaudeTool(name, toolInput),
+      hashIntent: detectHashIntent(name, toolInput),
+      dependencyIntent: detectDependencyIntent(name, toolInput, cwd)
+    };
   }
-  return DEPENDENCY_DECLARATION.test(String(toolInput && toolInput.new_string || ''));
+  // Claude's legacy path fallback uses the Codex tool-name classification.
+  // Reuse it only for names with the same classification on both surfaces.
+  const pathMutability = name === 'Bash' ? analysis.mutability : undefined;
+  return { ...analysis, affectedPaths: extractAffectedPaths(name, toolInput, cwd, pathMutability) };
 }
 
 module.exports = {
+  analyzeClaudeTool,
   classifyClaudeTool,
   detectDependencyIntent,
   detectHashIntent,

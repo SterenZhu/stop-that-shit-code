@@ -105,7 +105,48 @@ if (!packageJson.files?.includes('opencode/') || !packageJson.files?.includes('s
 if (!packageJson.engines?.opencode) fail('package does not declare its OpenCode engine');
 if (!fs.existsSync(path.join(root, openCodeEntrypoint))) fail('OpenCode package entrypoint is missing');
 
+const stsEntrypoint = './scripts/sts.cjs';
+const stsPackageFiles = [
+  'scripts/sts.cjs',
+  'scripts/case-bundle-lib.cjs',
+  'scripts/generated/case-bundle-v1-validator.cjs'
+];
+if (packageJson.bin?.sts !== stsEntrypoint) fail('package does not expose the sts command');
+for (const stsPath of stsPackageFiles) {
+  if (!packageJson.files?.includes(stsPath)) fail(`package files omit the sts runtime: ${stsPath}`);
+  if (!fs.existsSync(path.join(root, stsPath))) fail(`sts runtime path is missing: ${stsPath}`);
+}
+
+const piEntrypoint = './pi/stop-that-shit.ts';
+const piSkills = ['./skills/stop-that-shit'];
+const testedPiVersion = '0.84.4';
+if (!packageJson.keywords?.includes('pi-package')) fail('package keywords omit pi-package');
+if (packageJson.pi?.extensions?.length !== 1 || packageJson.pi.extensions[0] !== piEntrypoint) {
+  fail('Pi package manifest does not point at the single Pi Extension entrypoint');
+}
+if (JSON.stringify(packageJson.pi?.skills) !== JSON.stringify(piSkills)) {
+  fail('Pi package manifest does not point at the code Skill');
+}
+if (packageJson.peerDependencies?.['@earendil-works/pi-coding-agent'] !== '*') {
+  fail('Pi core package must use the loader-provided * peer dependency');
+}
+if (!packageJson.peerDependenciesMeta?.['@earendil-works/pi-coding-agent']?.optional) {
+  fail('Pi peer dependency must stay optional for non-Pi host installs');
+}
+if (!packageJson.files?.includes('pi/')) fail('package files omit the Pi Extension');
+for (const piPath of [piEntrypoint, ...piSkills]) {
+  if (!fs.existsSync(path.join(root, piPath))) fail(`Pi release path is missing: ${piPath}`);
+}
+const hostContractText = fs.readFileSync(path.join(root, 'HOST-ADAPTER-CONTRACT.md'), 'utf8');
+if (!hostContractText.includes(`@earendil-works/pi-coding-agent\` \`${testedPiVersion}`)) {
+  fail(`HOST-ADAPTER-CONTRACT.md does not identify tested Pi version ${testedPiVersion}`);
+}
+
 const hermesPluginRoot = './.hermes-plugin';
+if (!packageJson.files?.includes('omp/')) fail('package files omit the OMP Extension');
+if (!releaseManifest.include.includes('omp')) fail('release manifest omits the OMP Extension');
+if (!fs.existsSync(path.join(root, 'omp', 'stop-that-shit.ts'))) fail('OMP Extension entrypoint is missing');
+
 const hermesManifest = './.hermes-plugin/plugin.yaml';
 const hermesEntrypoint = './.hermes-plugin/__init__.py';
 const hermesRuntime = './.hermes-plugin/runtime/stop-that-shit.cjs';
@@ -125,9 +166,20 @@ if (fs.existsSync(path.join(root, hermesPluginRoot, 'hooks'))) {
 }
 
 const selectedFiles = releaseManifest.include.flatMap((entry) => walk(path.join(root, entry)));
-const textExtensions = new Set(['', '.cjs', '.js', '.json', '.md', '.txt', '.yaml', '.yml']);
-const staleVersion = /(?:v0\.1(?:\.\d+)?|0\.1\.1)/i;
-const privatePath = /(?:[A-Za-z]:\\Users\\|[A-Za-z]:\\object\\|\/Users\/|\/home\/)/;
+const textExtensions = new Set(['', '.cjs', '.csv', '.js', '.json', '.md', '.mjs', '.py', '.svg', '.ts', '.txt', '.yaml', '.yml']);
+// Historical versions in CHANGELOG.md and EVIDENCE.md are intentional.
+const staleVersion = /(?:v0\.1(?:\.\d+)?|0\.1\.2)/i;
+const currentVersionSurfaces = new Set([
+  'INSTALL.md',
+  'INSTALL_FOR_AGENTS.md',
+  'README.md',
+  'README_EN.md',
+  'README_KO.md',
+  'README_CN.md',
+  'SECURITY.md'
+]);
+const releaseReference = /(?:--ref\s+|--branch\s+|stop-that-shit@|\/(?:releases\/tag|releases\/download|blob|tree|archive\/refs\/tags)\/)(\d+\.\d+\.\d+)(?=[\s/.)?#]|$)/g;
+const privatePath = /(?:[A-Za-z]:[\\/](?:Users|object)[\\/]|\/Users\/|\/home\/)/;
 const mojibake = /(?:\uFFFD|\u9225|\u6E1F|\u951F)/;
 
 for (const file of selectedFiles) {
@@ -135,6 +187,13 @@ for (const file of selectedFiles) {
   const relative = path.relative(root, file);
   const content = fs.readFileSync(file, 'utf8');
   if (staleVersion.test(content)) fail(`stale public version marker in ${relative}`);
+  if (currentVersionSurfaces.has(relative)) {
+    for (const match of content.matchAll(releaseReference)) {
+      if (match[1] !== expectedVersion) {
+        fail(`versioned install reference in ${relative} uses ${match[1]}, expected ${expectedVersion}`);
+      }
+    }
+  }
   if (privatePath.test(content)) fail(`machine-specific path in ${relative}`);
   if (mojibake.test(content)) fail(`possible mojibake in ${relative}`);
 }

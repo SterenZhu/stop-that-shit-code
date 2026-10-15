@@ -14,16 +14,19 @@ test('Claude plugin manifest uses default skills and hooks surfaces', () => {
   assert.equal(manifest.name, 'stop-that-shit');
   assert.equal(manifest.version, pkg.version);
   assert.equal(manifest.skills, './skills/');
+  assert.ok(fs.existsSync(path.join(root, 'skills', 'stop-that-shit', 'SKILL.md')));
+  assert.equal(fs.existsSync(path.join(root, 'skills', 'stss', 'SKILL.md')), false);
   // The standard hooks/hooks.json location is auto-loaded; manifest.hooks
   // must not re-declare it, or hosts reject the duplicate registration.
   assert.equal(Object.hasOwn(manifest, 'hooks'), false);
   assert.ok(fs.existsSync(path.join(root, 'hooks', 'stop-that-shit-claude.cjs')));
 });
 
-test('Claude hooks register only events every supported host accepts', () => {
+test('Claude hooks register the current lifecycle and permission surface', () => {
   const config = readJson('hooks', 'hooks.json');
   assert.deepEqual(Object.keys(config.hooks).sort(), [
-    'PreToolUse', 'SessionStart', 'SubagentStart', 'UserPromptSubmit'
+    'PermissionDenied', 'PostToolUse', 'PostToolUseFailure', 'PreToolUse', 'SessionEnd', 'SessionStart',
+    'SubagentStart', 'UserPromptSubmit'
   ]);
   for (const groups of Object.values(config.hooks)) {
     for (const group of groups) {
@@ -57,11 +60,13 @@ test('Claude local install docs use an explicit relative marketplace path', () =
   }
 });
 
-test('Codex manifest keeps the original two-hook surface', () => {
+test('Codex manifest registers the handled lifecycle hook surface', () => {
   const manifest = readJson('.codex-plugin', 'plugin.json');
   const hooks = readJson('hooks', 'codex-hooks.json');
   assert.equal(manifest.hooks, './hooks/codex-hooks.json');
-  assert.deepEqual(Object.keys(hooks.hooks).sort(), ['PreToolUse', 'UserPromptSubmit']);
+  assert.deepEqual(Object.keys(hooks.hooks).sort(), [
+    'PostToolUse', 'PreToolUse', 'SessionEnd', 'UserPromptSubmit'
+  ]);
 });
 
 test('shared Skill documents both Claude Code and Codex invocation forms', () => {

@@ -33,8 +33,17 @@ test('package exposes the OpenCode plugin entrypoint for GitHub installs', async
   assert.ok(packageJson.files.includes('opencode/'));
   assert.ok(packageJson.files.includes('src/'));
   assert.ok(release.include.includes('opencode'));
+  assert.ok(packageJson.files.includes('server.mjs'));
+  assert.ok(release.include.includes('server.mjs'));
+  const localDirectoryModule = await import(pathToFileURL(path.join(root, 'server.mjs')).href);
+  assert.equal(localDirectoryModule.default, module.default);
   assert.equal(typeof module.StopThatShitPlugin, 'function');
-  assert.deepEqual(Object.keys(module), ['StopThatShitPlugin']);
+  assert.deepEqual(Object.keys(module), ['StopThatShitPlugin', 'default']);
+  assert.equal(module.default.server, module.StopThatShitPlugin);
+  assert.equal(typeof module.default.effect, 'function');
+  assert.equal(module.default.id, 'stop-that-shit');
+  assert.equal(packageModule.default, module.default);
+  assert.equal(serverModule.default, module.default);
   assert.equal(packageModule.StopThatShitPlugin, module.StopThatShitPlugin);
   assert.equal(serverModule.StopThatShitPlugin, module.StopThatShitPlugin);
 });
@@ -134,6 +143,87 @@ function sendPartEvent(hooks, part) {
   return hooks.event({ event: { type: 'message.part.updated', properties: { part } } });
 }
 
+for (const failure of ['fetch', 'session resolution', 'empty parts']) {
+  test(`message processing retries after ${failure} without applying successful duplicates`, async (t) => {
+    const { hooks, client, dataDir } = await plugin(t, { root: { id: 'root' } }, {
+      retry: message('root', 'retry', '$stop-that-shit review -- inspect only')
+    });
+    const method = failure === 'session resolution' ? 'get' : 'message';
+    const original = client.session[method];
+    let attempts = 0;
+    client.session[method] = async (...args) => {
+      if (++attempts === 1) {
+        if (failure === 'empty parts') return { data: { info: userInfo('root', 'retry'), parts: [] } };
+        throw new Error('temporary SDK failure');
+      }
+      return original(...args);
+    };
+    const part = textPart('root', 'retry', '$stop-that-shit review -- inspect only');
+    await sendPartEvent(hooks, part);
+    assert.notEqual(readState('root', dataDir).contract.mode, 'review');
+    await Promise.all([sendPartEvent(hooks, part), sendPartEvent(hooks, part)]);
+    assert.equal(readState('root', dataDir).contract.mode, 'review');
+    const completedFetches = client.calls.sessionMessage;
+    await sendPartEvent(hooks, part);
+    assert.equal(attempts, 2);
+    assert.equal(client.calls.sessionMessage, completedFetches);
+  });
+}
+
+for (const failure of ['fetch', 'session resolution', 'empty parts']) {
+  test(`an earlier ${failure} retry cannot replace a newer root contract`, async (t) => {
+    const { hooks, client, dataDir } = await plugin(t, { root: { id: 'root' } }, {
+      older: message('root', 'older', '$stop-that-shit change -- edit'),
+      newer: message('root', 'newer', '$stop-that-shit review -- inspect')
+    });
+    const method = failure === 'session resolution' ? 'get' : 'message';
+    const original = client.session[method];
+    let attempts = 0;
+    client.session[method] = async input => {
+      if (++attempts === 1) {
+        if (failure === 'empty parts') return { data: { info: userInfo('root', 'older'), parts: [] } };
+        throw new Error('temporary SDK failure');
+      }
+      return original(input);
+    };
+    const older = textPart('root', 'older', '$stop-that-shit change -- edit');
+    await sendPartEvent(hooks, older);
+    await sendPartEvent(hooks, textPart('root', 'newer', '$stop-that-shit review -- inspect'));
+    assert.equal(readState('root', dataDir).contract.mode, 'review');
+    const injections = client.calls.sessionPrompt;
+    await sendPartEvent(hooks, older);
+    assert.equal(readState('root', dataDir).contract.mode, 'review');
+    assert.equal(client.calls.sessionPrompt, injections);
+    await assert.rejects(hooks['tool.execute.before'](
+      { tool: 'write', sessionID: 'root', callID: 'after-retry' },
+      { args: { filePath: '/repo/a.txt', content: 'blocked' } }
+    ), /MODE_FORBIDS_MUTATION/);
+  });
+}
+
+test('a newer input in another root session does not suppress a pending retry', async (t) => {
+  const { hooks, client, dataDir } = await plugin(t, { first: { id: 'first' }, second: { id: 'second' } }, {
+    retry: message('first', 'retry', '$stop-that-shit change -- edit'),
+    other: message('second', 'other', '$stop-that-shit review -- inspect')
+  });
+  const original = client.session.message;
+  let attempts = 0;
+  client.session.message = async input => {
+    if (++attempts === 1) throw new Error('temporary fetch failure');
+    return original(input);
+  };
+  const retry = textPart('first', 'retry', '$stop-that-shit change -- edit');
+  await sendPartEvent(hooks, retry);
+  await sendPartEvent(hooks, textPart('second', 'other', '$stop-that-shit review -- inspect'));
+  await sendPartEvent(hooks, retry);
+  assert.equal(readState('first', dataDir).contract.mode, 'change');
+  assert.equal(readState('second', dataDir).contract.mode, 'review');
+  await hooks['tool.execute.before'](
+    { tool: 'write', sessionID: 'first', callID: 'allowed-after-retry' },
+    { args: { filePath: '/repo/a.txt', content: 'allowed' } }
+  );
+});
+
 test('documented message.part.updated arms a review contract and blocks writes', async (t) => {
   const sessions = { root: { id: 'root' } };
   const messages = {
@@ -158,14 +248,42 @@ test('documented message.part.updated arms a review contract and blocks writes',
   );
 });
 
+test('OpenCode keeps invalid-input rejection across failed notification, reload, and child calls', async (t) => {
+  const sessions = { root: { id: 'root' }, child: { id: 'child', parentID: 'root' } };
+  const messages = {
+    review: message('root', 'review', '$stop-that-shit review -- inspect'),
+    invalid: message('root', 'invalid', '$stop-that-shit change hash=alow -- implement'),
+    ordinary: message('root', 'ordinary', 'Continue.'),
+    corrected: message('root', 'corrected', '$stop-that-shit off change -- implement')
+  };
+  const initial = await plugin(t, sessions, messages);
+  await sendPartEvent(initial.hooks, messages.review.parts[0]);
+  initial.client.session.prompt = async () => { throw new Error('context unavailable'); };
+  await sendPartEvent(initial.hooks, messages.invalid.parts[0]);
+
+  const reloaded = await plugin(t, sessions, messages, { dataDir: initial.dataDir });
+  await sendPartEvent(reloaded.hooks, messages.ordinary.parts[0]);
+  assert.equal(readState('root', initial.dataDir).contract.mode, 'review');
+  for (const sessionID of ['root', 'child']) {
+    await assert.rejects(reloaded.hooks['tool.execute.before'](
+      { tool: 'read', sessionID, callID: `read-${sessionID}` }, { args: { filePath: '/repo/README.md' } }
+    ), /INVALID_DIRECTIVE_TOKEN/);
+  }
+  await sendPartEvent(reloaded.hooks, messages.corrected.parts[0]);
+  assert.equal(readState('root', initial.dataDir).directiveError, null);
+  await reloaded.hooks['tool.execute.before'](
+    { tool: 'edit', sessionID: 'child', callID: 'recovered' }, { args: { filePath: '/repo/a.txt', oldString: 'a', newString: 'b' } }
+  );
+});
+
 test('multi-part user messages are joined before parsing the contract', async (t) => {
   const sessions = { root: { id: 'root' } };
   const messages = {
-    'msg-2': message('root', 'msg-2', ['$stop-that-shit', ' review -- inspect only'])
+    'msg-2': message('root', 'msg-2', ['$stop-that-shit review', 'inspect only'])
   };
   const { hooks } = await plugin(t, sessions, messages);
 
-  await sendPartEvent(hooks, textPart('root', 'msg-2', ' review -- inspect only'));
+  await sendPartEvent(hooks, textPart('root', 'msg-2', 'inspect only'));
 
   await assert.rejects(
     hooks['tool.execute.before'](
@@ -238,7 +356,7 @@ test('child sessions inherit the root contract without gaining authority from ch
   );
 });
 
-test('parent and child task launches share one agent budget', async (t) => {
+test('parent and child task launches share one active agent budget', async (t) => {
   const sessions = {
     root: { id: 'root' },
     child: { id: 'child', parentID: 'root' }
@@ -251,7 +369,7 @@ test('parent and child task launches share one agent budget', async (t) => {
   await sendPartEvent(hooks, textPart('root', 'msg-root', '$stop-that-shit change agents=1 -- implement'));
   await hooks['tool.execute.before'](
     { tool: 'task', sessionID: 'root', callID: 'task-1' },
-    { args: { prompt: 'inspect', subagent_type: 'explore' } }
+    { args: { prompt: 'inspect', subagent_type: 'explore', async_launched: false } }
   );
   await hooks.event({ event: { type: 'session.created', properties: { info: sessions.child } } });
   await assert.rejects(
@@ -262,10 +380,109 @@ test('parent and child task launches share one agent budget', async (t) => {
     /AGENT_BUDGET_EXHAUSTED/
   );
 
-  await hooks['tool.execute.before'](
-    { tool: 'task', sessionID: 'child', callID: 'task-continue' },
-    { args: { task_id: 'child', prompt: 'continue', subagent_type: 'explore' } }
+  await assert.rejects(
+    hooks['tool.execute.before'](
+      { tool: 'task', sessionID: 'child', callID: 'task-continue' },
+      { args: { task_id: 'child', prompt: 'continue', subagent_type: 'explore' } }
+    ),
+    /DELEGATION_LIFECYCLE_UNPROVEN/
   );
+});
+
+test('OpenCode task completion releases the delegation reservation', async (t) => {
+  const sessions = { root: { id: 'root' } };
+  const messages = {
+    'msg-delegation': message('root', 'msg-delegation', '$stop-that-shit change agents=1 -- delegate')
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+
+  await sendPartEvent(hooks, textPart('root', 'msg-delegation', '$stop-that-shit change agents=1 -- delegate'));
+  await hooks['tool.execute.before'](
+    { tool: 'task', sessionID: 'root', callID: 'task-1' },
+    { args: { prompt: 'inspect', subagent_type: 'explore', async_launched: false } }
+  );
+  await hooks['tool.execute.after'](
+    { tool: 'task', sessionID: 'root', callID: 'task-1', async_launched: false },
+    { output: 'done', metadata: { sessionId: 'completed-child' } }
+  );
+
+  assert.deepEqual(readState('root', dataDir).delegation.reservations, {});
+  await assert.doesNotReject(
+    hooks['tool.execute.before'](
+      { tool: 'task', sessionID: 'root', callID: 'task-2' },
+      { args: { prompt: 'inspect again', subagent_type: 'explore', async_launched: false } }
+    )
+  );
+});
+
+test('OpenCode child idle lifecycle releases an explicitly associated background reservation', async (t) => {
+  const sessions = {
+    root: { id: 'root' },
+    child: { id: 'child', parentID: 'root' }
+  };
+  const messages = {
+    'msg-background': message('root', 'msg-background', '$stop-that-shit change agents=1 -- delegate')
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+
+  await sendPartEvent(hooks, textPart('root', 'msg-background', '$stop-that-shit change agents=1 -- delegate'));
+  await hooks['tool.execute.before'](
+    { tool: 'task', sessionID: 'root', callID: 'task-1' },
+    { args: { prompt: 'inspect', subagent_type: 'explore', async_launched: true } }
+  );
+  await hooks.event({ event: { type: 'session.created', properties: { info: sessions.child } } });
+  await hooks['tool.execute.after'](
+    { tool: 'task', sessionID: 'root', callID: 'task-1', args: {} },
+    { output: 'launched', metadata: { sessionId: 'child', background: true } }
+  );
+  assert.equal(readState('root', dataDir).delegation.reservations['reservation:task-1'].agentIds[0], 'child');
+
+  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'child' } } });
+  assert.deepEqual(readState('root', dataDir).delegation.reservations, {});
+});
+
+test('child session deletion preserves root mapping until the child task completes', async (t) => {
+  const sessions = {
+    root: { id: 'root' },
+    child: { id: 'child', parentID: 'root' }
+  };
+  const messages = {
+    'msg-root': message('root', 'msg-root', '$stop-that-shit change agents=1 -- delegate')
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+
+  await sendPartEvent(hooks, textPart('root', 'msg-root', '$stop-that-shit change agents=1 -- delegate'));
+  await hooks.event({ event: { type: 'session.created', properties: { info: sessions.child } } });
+  await hooks['tool.execute.before'](
+    { tool: 'task', sessionID: 'child', callID: 'task-child' },
+    { args: { prompt: 'inspect', subagent_type: 'explore', async_launched: false } }
+  );
+  await hooks.event({ event: { type: 'session.deleted', properties: { info: sessions.child } } });
+  delete sessions.child;
+
+  await hooks['tool.execute.after'](
+    { tool: 'task', sessionID: 'child', callID: 'task-child', async_launched: false },
+    { output: 'done', metadata: { sessionId: 'completed-child' } }
+  );
+
+  assert.deepEqual(readState('root', dataDir).delegation.reservations, {});
+});
+
+test('root session deletion alone does not prove child completion', async (t) => {
+  const sessions = { root: { id: 'root' } };
+  const messages = {
+    'msg-root-end': message('root', 'msg-root-end', '$stop-that-shit change agents=1 -- delegate')
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+
+  await sendPartEvent(hooks, textPart('root', 'msg-root-end', '$stop-that-shit change agents=1 -- delegate'));
+  await hooks['tool.execute.before'](
+    { tool: 'task', sessionID: 'root', callID: 'task-root' },
+    { args: { prompt: 'inspect', subagent_type: 'explore' } }
+  );
+  await hooks.event({ event: { type: 'session.deleted', properties: { info: sessions.root } } });
+
+  assert.equal(readState('root', dataDir).delegation.reservations['reservation:task-root'].pendingCount, 1);
 });
 
 test('watch context is appended after the tool without denying execution', async (t) => {
@@ -433,12 +650,15 @@ test('subagent messages do not advance the root contract', async (t) => {
 test('a quoted directive mention does not advance the review contract', async (t) => {
   const sessions = { root: { id: 'root' } };
   const messages = {
-    'msg-quoted': message('root', 'msg-quoted', '"$stop-that-shit review -- inspect only"')
+    'msg-review': message('root', 'msg-review', '$stop-that-shit review -- inspect only'),
+    'msg-quoted': message('root', 'msg-quoted', 'Explain "$stop-that-shit off change hash=allow -- example"')
   };
   const { dataDir, hooks } = await plugin(t, sessions, messages);
 
-  await sendPartEvent(hooks, textPart('root', 'msg-quoted', '"$stop-that-shit review -- inspect only"'));
-  assert.equal(readState('root', dataDir).contract.mode, 'review');
+  await sendPartEvent(hooks, messages['msg-review'].parts[0]);
+  const previous = readState('root', dataDir).contract;
+  await sendPartEvent(hooks, messages['msg-quoted'].parts[0]);
+  assert.deepEqual(readState('root', dataDir).contract, previous);
 
   await assert.rejects(
     hooks['tool.execute.before'](
@@ -447,6 +667,63 @@ test('a quoted directive mention does not advance the review contract', async (t
     ),
     /MODE_FORBIDS_MUTATION/
   );
+});
+
+test('a quoted command cannot arm a fresh OpenCode session', async (t) => {
+  const sessions = { root: { id: 'root' } };
+  const messages = {
+    'msg-quoted': message('root', 'msg-quoted', '"$stop-that-shit change hash=allow -- example"')
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+  await sendPartEvent(hooks, messages['msg-quoted'].parts[0]);
+  const contract = readState('root', dataDir).contract;
+  assert.equal(contract.mode, 'unconfirmed');
+  assert.equal(contract.level, 'watch');
+  assert.equal(contract.hashPolicy, 'deny');
+});
+
+test('invalid OpenCode directives report the error and pause tools until corrected', async (t) => {
+  const sessions = { root: { id: 'root' } };
+  const messages = {
+    start: message('root', 'start', '$stop-that-shit change -- implement'),
+    invalid: message('root', 'invalid', '$stop-that-shit review hash=alow -- inspect only'),
+    corrected: message('root', 'corrected', '$stop-that-shit review hash=allow -- inspect only'),
+    change: message('root', 'change', '$stop-that-shit change -- apply the requested fix')
+  };
+  const { client, dataDir, hooks } = await plugin(t, sessions, messages);
+  const edit = () => hooks['tool.execute.before'](
+    { tool: 'edit', sessionID: 'root', callID: 'edit-after-error' },
+    { args: { filePath: '/repo/out.txt', oldString: 'a', newString: 'b' } }
+  );
+  await sendPartEvent(hooks, messages.start.parts[0]);
+  await assert.doesNotReject(edit);
+  const previous = readState('root', dataDir).contract;
+  await sendPartEvent(hooks, messages.invalid.parts[0]);
+  assert.deepEqual(readState('root', dataDir).contract, previous);
+  assert.match(client.prompts.at(-1).parts[0].text, /INVALID_DIRECTIVE_TOKEN/);
+  await assert.rejects(edit, /INVALID_DIRECTIVE_TOKEN/);
+
+  await sendPartEvent(hooks, messages.corrected.parts[0]);
+  await assert.rejects(edit, /MODE_FORBIDS_MUTATION/);
+  await assert.doesNotReject(hooks['tool.execute.before'](
+    { tool: 'read', sessionID: 'root', callID: 'read-after-correction' },
+    { args: { filePath: '/repo/out.txt' } }
+  ));
+  await sendPartEvent(hooks, messages.change.parts[0]);
+  await assert.doesNotReject(edit);
+});
+
+test('later OpenCode message parts cannot extend the directive header', async (t) => {
+  const sessions = { root: { id: 'root' } };
+  const messages = {
+    'msg-review': message('root', 'msg-review', '$stop-that-shit review -- inspect only'),
+    'msg-split': message('root', 'msg-split', ['$stop-that-shit', 'change hash=allow'])
+  };
+  const { dataDir, hooks } = await plugin(t, sessions, messages);
+  await sendPartEvent(hooks, messages['msg-review'].parts[0]);
+  const previous = readState('root', dataDir).contract;
+  await sendPartEvent(hooks, messages['msg-split'].parts[1]);
+  assert.deepEqual(readState('root', dataDir).contract, previous);
 });
 
 test('an unreachable agent list fails open and advances the review contract', async (t) => {

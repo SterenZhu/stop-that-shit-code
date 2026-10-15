@@ -1,7 +1,7 @@
 {
   "name": "stop-that-shit",
-  "version": "0.1.0+codex.20260827212340",
-  "description": "Stop unneeded scope, subagents, dependencies, and hashes in Codex tasks.",
+  "version": "0.2.5",
+  "description": "Keep coding tasks bounded with local-first guardrails and code-only automatic activation.",
   "author": {
     "name": "Stop That Shit contributors",
     "url": "https://github.com/lennney"
@@ -19,8 +19,8 @@
   "hooks": "./hooks/codex-hooks.json",
   "interface": {
     "displayName": "Stop That Shit（别再造史了）",
-    "shortDescription": "Stop small Codex tasks from growing extra machinery.",
-    "longDescription": "Stop That Shit runs locally and blocks unneeded scope, subagents, dependencies, and hashes in Codex tasks.",
+    "shortDescription": "Keep coding tasks focused on requested work.",
+    "longDescription": "Stop That Shit runs locally and applies the Stop Ladder to code development. Explicit directives control supported Guard boundaries.",
     "developerName": "Stop That Shit contributors",
     "category": "Productivity",
     "capabilities": [

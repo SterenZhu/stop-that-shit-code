@@ -43,7 +43,7 @@ general improvement in model behavior.
 2. Run these commands one at a time:
 
    ```powershell
-   codex plugin marketplace add lennney/stop-that-shit
+   codex plugin marketplace add lennney/stop-that-shit --ref 0.2.5
    codex plugin add stop-that-shit@stop-that-shit
    ```
 
@@ -51,16 +51,13 @@ general improvement in model behavior.
 4. Ask the user to open a fresh Codex CLI TUI and enter `/hooks`.
 5. Stop and let the user inspect and trust the Hook commands.
 
-A correct Guard installation has these two active events:
-
-```text
-UserPromptSubmit  Installed 1  Active 1
-PreToolUse        Installed 1  Active 1
-```
-
-The other events, including `Stop`, should show zero installed Hooks. An update
-can require another review because Codex records trust for the Hook definition.
-Do not disable or work around this review.
+Compare the installed tag's `hooks/codex-hooks.json` with the entries shown by
+`/hooks`, then let the user review and trust those commands. Other plugins can
+add entries. Subagent events from older configurations remain ignored and do
+not prove delegation completion or release capacity.
+An update can require another review because Codex records trust for the Hook
+definition. Do not disable or work around this review. See
+[upgrade notes](INSTALL.md#upgrade) for version and state migration.
 
 ## Hermes Agent CLI
 
@@ -82,6 +79,44 @@ hermes gateway restart
 These steps are not required every time the plugin is used. Restart the
 corresponding Hermes process only after enabling, disabling, updating, rolling
 back, or reinstalling the plugin.
+
+## Pi Coding Agent
+
+Use Pi `0.84.4` or re-run the pinned compatibility checks before claiming a
+newer version. Pi itself requires Node.js `22.19.0` or newer. Review the package
+source with the user because Pi packages execute with full system access.
+
+For a local checkout containing the adapter:
+
+```bash
+pi install /absolute/path/to/stop-that-shit
+```
+
+Use `-l` only when the user wants project-scoped settings. Start a new Pi
+process, or run `/reload` after package-resource changes. Verify that both the
+Extension and `stop-that-shit` Skill are listed, then invoke
+`/skill:stop-that-shit review -- ...` or the host-neutral directive. Do not
+claim that the optional `subagent` child processes inherit the root contract.
+
+## Oh My Pi
+
+Use OMP `18.4.4` for the checked baseline. STS `0.2.5` includes this adapter.
+From the tagged checkout or extracted release package, start OMP with its
+explicit Extension and Skills paths:
+
+```bash
+omp -e /absolute/path/to/stop-that-shit/omp/stop-that-shit.ts --skills /absolute/path/to/stop-that-shit/skills --sts-contract "review agents=0 -- inspect"
+```
+
+Review the source with the user before accepting extension trust. Do not use
+the Pi package entrypoint for OMP. Verify native review denial and permitted
+change in a disposable workspace. Use `/sts review -- ...`, `/sts change -- ...`,
+and `/sts status` for root control, including RPC. RPC/SDK model prompts do not
+emit OMP's `input` event; do not parse their body as authorization. Native CLI/RPC
+and child-executor effects were checked with a deterministic local provider.
+Interactive TUI checks also passed the tested control and task paths with a
+deterministic local provider. Git-source installation remains unverified.
+See [INSTALL.md](INSTALL.md#oh-my-pi).
 
 ## Smoke test
 
@@ -109,7 +144,13 @@ general improvement in model behavior.
 If the user does not want Hooks, install the advisory Skill instead:
 
 ```text
-$skill-installer Install stop-that-shit from https://github.com/lennney/stop-that-shit/tree/0.1.0/skills/stop-that-shit
+$skill-installer Install stop-that-shit from https://github.com/lennney/stop-that-shit/tree/0.2.5/skills/stop-that-shit
+```
+
+If the user asks for only Stop That Shit Slop, run this from the tagged checkout:
+
+```bash
+npx skills add ./skills/stss --global
 ```
 
 Ask the user to start a new Codex task after installation. Explain that this
